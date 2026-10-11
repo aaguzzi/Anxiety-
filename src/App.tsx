@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { App as CapApp } from '@capacitor/app';
 import { Tab, Exercise, AppState } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import Navigation from './components/Navigation';
@@ -17,6 +18,19 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [activeExercise, setActiveExercise] = useState<Exercise | null>(null);
   const [appState, setAppState] = useLocalStorage<AppState>('anxiety-companion', defaultState);
+
+  const navRef = useRef({ tab, activeExercise });
+  navRef.current = { tab, activeExercise };
+
+  useEffect(() => {
+    const listener = CapApp.addListener('backButton', () => {
+      const { tab: t, activeExercise: ex } = navRef.current;
+      if (ex) setActiveExercise(null);
+      else if (t !== 'home') setTab('home');
+      else CapApp.exitApp();
+    });
+    return () => { listener.then(l => l.remove()); };
+  }, []);
 
   const today = new Date().toISOString().slice(0, 10);
 
