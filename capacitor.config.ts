@@ -8,6 +8,12 @@ const config: CapacitorConfig = {
   android: {
     adjustMarginsForEdgeToEdge: 'force',
   },
+  plugins: {
+    LocalNotifications: {
+      smallIcon: 'ic_stat_notify',
+      iconColor: '#8B7DB8',
+    },
+  },
 };
 
 export default config;

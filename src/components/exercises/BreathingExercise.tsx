@@ -143,10 +143,10 @@ export function Breathing478({ onComplete }: ExerciseProps) {
 }
 
 // ─── Physiological Sigh ───────────────────────────────
-export function PhysiologicalSigh({ onComplete }: ExerciseProps) {
+export function PhysiologicalSigh({ onComplete, autoStart = false, reps = 5 }: ExerciseProps & { autoStart?: boolean; reps?: number }) {
   const [step, setStep] = useState(0);
   const [rep, setRep] = useState(1);
-  const totalReps = 5;
+  const totalReps = reps;
 
   const steps = [
     { label: 'First inhale', detail: 'Breathe in deeply through your nose — fill your lungs about 80%.', duration: 3 },
@@ -155,7 +155,7 @@ export function PhysiologicalSigh({ onComplete }: ExerciseProps) {
   ];
 
   const [count, setCount] = useState(steps[0].duration);
-  const [running, setRunning] = useState(false);
+  const [running, setRunning] = useState(autoStart);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {

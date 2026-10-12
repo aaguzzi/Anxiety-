@@ -39,6 +39,24 @@ export interface ExerciseProps {
   onComplete: () => void;
 }
 
+export interface CheckinEntry {
+  id: string;
+  at: string;
+  level: number;
+  feeling?: string;
+  focus: Category[];
+  note?: string;
+}
+
+export interface Settings {
+  reminderEnabled: boolean;
+  reminderTime: string;
+  contactName: string;
+  contactPhone: string;
+}
+
+export type PracticeHistory = Record<string, string[]>;
+
 export interface AppState {
   completedToday: string[];
   streak: number;
