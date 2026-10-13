@@ -7,6 +7,7 @@ const config: CapacitorConfig = {
   backgroundColor: '#F0EDE8',
   android: {
     adjustMarginsForEdgeToEdge: 'force',
+    webContentsDebuggingEnabled: false,
   },
   plugins: {
     LocalNotifications: {

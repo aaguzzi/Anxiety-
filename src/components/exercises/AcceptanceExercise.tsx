@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { ExerciseProps } from '../../types';
 
-// ─── DARE Response ────────────────────────────────────
-const DARE_STEPS = [
+// ─── Make Room ────────────────────────────────────────
+const MAKE_ROOM_STEPS = [
   {
-    letter: 'D',
-    title: 'Defuse',
+    letter: 'N',
+    title: 'Notice the thought',
     color: '#8B7DB8',
     desc: 'Step back from the anxious thought. Instead of "I\'m going to panic," try: "I notice my mind is predicting danger." You don\'t need to fight the thought — just unhook from it.',
     prompt: 'What thought is your mind currently running? Write it, then try labeling it as just a thought.',
@@ -18,10 +18,10 @@ const DARE_STEPS = [
     prompt: 'What sensations are you feeling in your body right now? Describe them without judgment.',
   },
   {
-    letter: 'R',
-    title: 'Run toward',
+    letter: 'T',
+    title: 'Turn toward',
     color: '#B8956A',
-    desc: 'Instead of escaping the anxiety, turn toward it. Get curious: "What is my mind trying to protect me from?" Approach the feeling rather than fleeing it. The more you run toward anxiety, the less power it has.',
+    desc: 'Instead of escaping the feeling, turn toward it with curiosity: "What is my mind trying to protect me from?" Approach it gently, at your own pace. This is about the feeling, not about putting yourself in real danger — if a situation is genuinely unsafe, or connected to trauma, it\'s okay to step back and work on it with a professional.',
     prompt: 'What is anxiety trying to warn you about? What would happen if you moved toward that fear rather than away?',
   },
   {
@@ -33,13 +33,13 @@ const DARE_STEPS = [
   },
 ];
 
-export function DAREResponse({ onComplete }: ExerciseProps) {
+export function MakeRoom({ onComplete }: ExerciseProps) {
   const [step, setStep] = useState(0);
   const [reflections, setReflections] = useState<string[]>(['', '', '', '']);
   const [done, setDone] = useState(false);
 
   function handleNext() {
-    if (step < DARE_STEPS.length - 1) {
+    if (step < MAKE_ROOM_STEPS.length - 1) {
       setStep(s => s + 1);
     } else {
       setDone(true);
@@ -52,19 +52,19 @@ export function DAREResponse({ onComplete }: ExerciseProps) {
         <span className="completion-icon">🌊</span>
         <div className="completion-title">You faced it.</div>
         <div className="completion-msg">
-          The DARE response isn't about eliminating anxiety. It's about changing your relationship with it — from struggle to willingness. That's where freedom lives.
+          Making room isn't about eliminating anxiety. It's about changing your relationship with it — from struggle to willingness. That's where freedom lives.
         </div>
         <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
       </div>
     );
   }
 
-  const current = DARE_STEPS[step];
+  const current = MAKE_ROOM_STEPS[step];
 
   return (
     <div>
       <div className="step-list">
-        {DARE_STEPS.map((s, i) => (
+        {MAKE_ROOM_STEPS.map((s, i) => (
           <div key={s.letter} className={`step-row ${i > step ? 'inactive' : ''}`}>
             <div className={`step-num ${i === step ? 'current' : i < step ? 'done' : ''}`}
               style={i === step ? { backgroundColor: s.color } : {}}>
@@ -97,7 +97,7 @@ export function DAREResponse({ onComplete }: ExerciseProps) {
         style={{ backgroundColor: current.color }}
         onClick={handleNext}
       >
-        {step < DARE_STEPS.length - 1 ? `Next: ${DARE_STEPS[step + 1].title}` : 'Complete DARE'}
+        {step < MAKE_ROOM_STEPS.length - 1 ? `Next: ${MAKE_ROOM_STEPS[step + 1].title}` : 'Complete'}
       </button>
     </div>
   );

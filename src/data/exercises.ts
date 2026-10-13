@@ -6,7 +6,7 @@ export const exercises: Exercise[] = [
     id: 'box-breathing',
     title: 'Box Breathing',
     subtitle: '4 · 4 · 4 · 4',
-    description: 'A steady breath pattern that signals safety to your nervous system.',
+    description: 'A steady, even breath pattern to give your attention something simple to follow.',
     duration: '5 min',
     category: 'breathing',
     tags: ['beginner', 'calm', 'anytime'],
@@ -17,10 +17,10 @@ export const exercises: Exercise[] = [
     id: 'physiological-sigh',
     title: 'Physiological Sigh',
     subtitle: 'Double inhale · Long exhale',
-    description: 'The fastest known way to reduce acute stress — resets your CO₂ balance in seconds.',
+    description: 'A long, slow out-breath that many people find settles them quickly when stress spikes.',
     duration: '2 min',
     category: 'breathing',
-    tags: ['quick', 'panic', 'science-backed'],
+    tags: ['quick', 'panic', 'no breath-holds'],
     actPrinciple: 'Present Moment Contact',
     component: 'PhysiologicalSigh',
   },
@@ -28,7 +28,7 @@ export const exercises: Exercise[] = [
     id: '4-7-8',
     title: '4-7-8 Breathing',
     subtitle: '4 in · 7 hold · 8 out',
-    description: 'Extended exhale activates the parasympathetic response. Great before sleep.',
+    description: 'A slow rhythm with a long exhale. Many people use it to wind down before sleep.',
     duration: '5 min',
     category: 'breathing',
     tags: ['sleep', 'relaxation', 'calm'],
@@ -95,14 +95,14 @@ export const exercises: Exercise[] = [
   // ACCEPTANCE
   {
     id: 'dare-response',
-    title: 'DARE Response',
-    subtitle: 'Defuse · Allow · Run toward · Engage',
-    description: 'A complete four-step approach to turn anxiety from enemy to signal.',
+    title: 'Make Room',
+    subtitle: 'Notice · Allow · Turn toward · Engage',
+    description: 'Four steps for changing your relationship with anxiety, from struggle to willingness.',
     duration: '10 min',
     category: 'acceptance',
     tags: ['anxiety', 'avoidance', 'complete practice'],
     actPrinciple: 'Acceptance',
-    component: 'DAREResponse',
+    component: 'MakeRoom',
   },
   {
     id: 'soften-allow',
@@ -165,7 +165,7 @@ export const exercises: Exercise[] = [
 ];
 
 export const categoryMeta: Record<Category, { label: string; color: string; description: string; emoji: string }> = {
-  breathing: { label: 'Breathe', color: '#5B8FA8', description: 'Regulate your nervous system', emoji: '🌬️' },
+  breathing: { label: 'Breathe', color: '#5B8FA8', description: 'Slow down with your breath', emoji: '🌬️' },
   grounding: { label: 'Ground', color: '#6B9E7A', description: 'Anchor in the present', emoji: '🌿' },
   defusion: { label: 'Defuse', color: '#8B7DB8', description: 'Create space from thoughts', emoji: '🍃' },
   acceptance: { label: 'Accept', color: '#B87A7A', description: 'Open up to difficult feelings', emoji: '🌊' },

@@ -29,10 +29,10 @@ export default function ValuesCompass({ onComplete }: ExerciseProps) {
     setIntentions(prev => ({ ...prev, [id]: val }));
   }
 
-  const allIntentionsFilled = selected.every(id => intentions[id]?.trim());
+  const allIntentionsFilled = selected.some(id => intentions[id]?.trim());
 
   if (phase === 'done') {
-    const selectedDomains = DOMAINS.filter(d => selected.includes(d.id));
+    const selectedDomains = DOMAINS.filter(d => selected.includes(d.id) && intentions[d.id]?.trim());
     return (
       <div className="completion-screen">
         <span className="completion-icon">🧭</span>

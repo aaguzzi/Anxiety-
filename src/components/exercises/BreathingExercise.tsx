@@ -42,70 +42,100 @@ function BreathingVisual({ phase, duration, color }: { phase: Phase; duration: n
 
 function BreathingEngine({ config, onComplete }: { config: CycleConfig; onComplete: () => void }) {
   const [started, setStarted] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [skipHolds, setSkipHolds] = useState(false);
   const [phaseIdx, setPhaseIdx] = useState(0);
   const [cycle, setCycle] = useState(1);
   const [count, setCount] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const currentPhase = started ? config.phases[phaseIdx] : { phase: 'ready' as Phase, duration: 0, label: 'Ready' };
+  const hasHolds = config.phases.some(p => p.phase.startsWith('hold'));
+  const phases = skipHolds ? config.phases.filter(p => !p.phase.startsWith('hold')) : config.phases;
+  const currentPhase = started ? phases[phaseIdx] : { phase: 'ready' as Phase, duration: 0, label: 'Ready' };
 
   useEffect(() => {
-    if (!started) return;
-    const pd = config.phases[phaseIdx];
-    setCount(pd.duration);
+    if (!started || paused) return;
+    const t = setInterval(() => setCount(c => c - 1), 1000);
+    return () => clearInterval(t);
+  }, [started, paused]);
 
-    timerRef.current = setInterval(() => {
-      setCount(c => {
-        if (c <= 1) {
-          clearInterval(timerRef.current!);
-          const nextIdx = phaseIdx + 1;
-          if (nextIdx >= config.phases.length) {
-            if (cycle >= config.cycles) {
-              setStarted(false);
-              onComplete();
-            } else {
-              setCycle(c2 => c2 + 1);
-              setPhaseIdx(0);
-            }
-          } else {
-            setPhaseIdx(nextIdx);
-          }
-          return 0;
-        }
-        return c - 1;
-      });
-    }, 1000);
+  useEffect(() => {
+    if (!started || count > 0) return;
+    const next = phaseIdx + 1;
+    if (next < phases.length) {
+      setPhaseIdx(next);
+      setCount(phases[next].duration);
+    } else if (cycle < config.cycles) {
+      setCycle(cycle + 1);
+      setPhaseIdx(0);
+      setCount(phases[0].duration);
+    } else {
+      setStarted(false);
+      onComplete();
+    }
+  }, [count]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    return () => clearInterval(timerRef.current!);
-  }, [started, phaseIdx, cycle]); // eslint-disable-line react-hooks/exhaustive-deps
+  function begin() {
+    setPhaseIdx(0);
+    setCycle(1);
+    setCount(phases[0].duration);
+    setPaused(false);
+    setStarted(true);
+  }
+
+  function stop() {
+    setStarted(false);
+    setPaused(false);
+  }
 
   return (
     <div className="breathing-scene">
       <BreathingVisual
-        phase={currentPhase.phase}
+        phase={paused ? 'ready' : currentPhase.phase}
         duration={currentPhase.duration}
         color={config.color}
       />
 
       <div className="breathing-phase">
-        <span className="breathing-phase-label">{currentPhase.label}</span>
+        <span className="breathing-phase-label">{paused ? 'Paused' : currentPhase.label}</span>
         {started && count > 0 && (
           <div className="breathing-countdown">{count}</div>
         )}
       </div>
 
       <div className="breathing-cycle-info">
-        {started ? `Cycle ${cycle} of ${config.cycles}` : `${config.cycles} cycles · ${config.phases.map(p => p.duration).join('-')}`}
+        {started ? `Cycle ${cycle} of ${config.cycles}` : `${config.cycles} cycles · ${phases.map(p => p.duration).join('-')}`}
       </div>
 
       {!started && (
-        <button
-          className="btn btn-primary breathing-start-btn"
-          style={{ backgroundColor: config.color, minWidth: 180 }}
-          onClick={() => { setStarted(true); setPhaseIdx(0); setCycle(1); }}
-        >
-          Begin
-        </button>
+        <>
+          {hasHolds && (
+            <div className="hold-option">
+              <label className="hold-toggle">
+                <input type="checkbox" checked={skipHolds} onChange={e => setSkipHolds(e.target.checked)} />
+                Skip the breath-holds
+              </label>
+              <p className="caption-text">
+                If holding your breath feels uncomfortable or makes you dizzy, skip the holds and just breathe in and out slowly.
+              </p>
+            </div>
+          )}
+          <button
+            className="btn btn-primary breathing-start-btn"
+            style={{ backgroundColor: config.color, minWidth: 180 }}
+            onClick={begin}
+          >
+            Begin
+          </button>
+        </>
+      )}
+
+      {started && (
+        <div className="breathing-controls">
+          <button className="btn btn-secondary" onClick={() => setPaused(p => !p)}>
+            {paused ? 'Resume' : 'Pause'}
+          </button>
+          <button className="btn btn-ghost" onClick={stop}>Stop</button>
+        </div>
       )}
     </div>
   );
@@ -218,7 +248,7 @@ export function PhysiologicalSigh({ onComplete, autoStart = false, reps = 5 }: E
       </div>
 
       <div className="breathing-cycle-info">
-        {running ? `Sigh ${rep} of ${totalReps}` : `${totalReps} sighs · reset your nervous system instantly`}
+        {running ? `Sigh ${rep} of ${totalReps}` : `${totalReps} sighs · a long, slow breath out`}
       </div>
 
       {!running && (

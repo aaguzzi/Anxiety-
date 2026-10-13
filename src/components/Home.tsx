@@ -1,4 +1,4 @@
-import { AppState, Exercise, CheckinEntry, PracticeHistory, Settings } from '../types';
+import { Exercise, CheckinEntry, PracticeHistory, Settings } from '../types';
 import { exercises } from '../data/exercises';
 import { remindersSupported } from '../lib/reminders';
 import ExerciseCard from './ExerciseCard';
@@ -57,13 +57,14 @@ const TIME_CONFIG: Record<TimeOfDay, {
     label: 'Good night',
     greeting: 'Ease into rest.',
     tagline: 'Quiet the mind and prepare for sleep.',
-    featuredId: '4-7-8',
-    quickIds: ['observer-self', 'body-scan', 'soften-allow'],
+    featuredId: 'physiological-sigh',
+    quickIds: ['4-7-8', 'observer-self', 'soften-allow'],
   },
 };
 
 interface Props {
-  appState: AppState;
+  completedToday: string[];
+  practicesThisMonth: number;
   checkins: CheckinEntry[];
   history: PracticeHistory;
   settings: Settings;
@@ -74,7 +75,7 @@ interface Props {
 }
 
 export default function Home({
-  appState, checkins, history, settings,
+  completedToday, practicesThisMonth, checkins, history, settings,
   onOpenExercise, onOpenSettings, onOpenHistory, onStartCheckin,
 }: Props) {
   const tod = getTimeOfDay();
@@ -97,10 +98,10 @@ export default function Home({
         <div className="home-time-label">{config.label}</div>
         <div className="home-greeting">{config.greeting}</div>
         <div className="home-tagline">{config.tagline}</div>
-        {appState.streak > 0 && (
+        {practicesThisMonth > 0 && (
           <div className="streak-row">
             <div className="streak-chip">
-              🔥 {appState.streak} day{appState.streak !== 1 ? 's' : ''} in a row
+              🌱 {practicesThisMonth} practice{practicesThisMonth !== 1 ? 's' : ''} this month
             </div>
           </div>
         )}
@@ -162,7 +163,7 @@ export default function Home({
               key={ex.id}
               exercise={ex}
               onClick={onOpenExercise}
-              completed={appState.completedToday.includes(ex.id)}
+              completed={completedToday.includes(ex.id)}
             />
           ))}
         </div>

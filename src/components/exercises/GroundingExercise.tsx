@@ -24,7 +24,17 @@ export function Grounding54321({ onComplete }: ExerciseProps) {
     });
   }
 
-  const allFilled = inputs.every(row => row.every(v => v.trim().length > 0));
+  const [ticked, setTicked] = useState<boolean[][]>(SENSES.map(s => Array(s.count).fill(false)));
+  const isDone = (si: number, ii: number) => ticked[si][ii] || inputs[si][ii].trim().length > 0;
+  const doneCount = SENSES.reduce((n, s, si) => n + Array.from({ length: s.count }, (_, ii) => isDone(si, ii)).filter(Boolean).length, 0);
+
+  function toggleTick(si: number, ii: number) {
+    setTicked(prev => {
+      const next = prev.map(row => [...row]);
+      next[si][ii] = !next[si][ii];
+      return next;
+    });
+  }
 
   if (done) {
     return (
@@ -32,7 +42,7 @@ export function Grounding54321({ onComplete }: ExerciseProps) {
         <span className="completion-icon">🌿</span>
         <div className="completion-title">You're here.</div>
         <div className="completion-msg">
-          You just anchored yourself in the present moment through your senses. Notice how your mind feels a little clearer.
+          You just anchored yourself in the present moment through your senses. Whatever you notice now is fine, just as it is.
         </div>
         <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
       </div>
@@ -53,11 +63,17 @@ export function Grounding54321({ onComplete }: ExerciseProps) {
           <div className="sense-inputs">
             {Array.from({ length: s.count }, (_, ii) => (
               <div className="sense-input-row" key={ii}>
-                <div className={`sense-check ${inputs[si][ii].trim() ? 'done' : ''}`} />
+                <button
+                  type="button"
+                  className={`sense-check ${isDone(si, ii) ? 'done' : ''}`}
+                  onClick={() => toggleTick(si, ii)}
+                  aria-label={`Mark ${s.sense.toLowerCase()} item ${ii + 1} as noticed`}
+                  aria-pressed={isDone(si, ii)}
+                />
                 <input
                   type="text"
                   className={`sense-input ${inputs[si][ii].trim() ? 'filled' : ''}`}
-                  placeholder={`${s.sense.charAt(0) + s.sense.slice(1).toLowerCase()} something...`}
+                  placeholder="Tap the circle, or type it (optional)"
                   value={inputs[si][ii]}
                   onChange={e => handleChange(si, ii, e.target.value)}
                 />
@@ -67,13 +83,8 @@ export function Grounding54321({ onComplete }: ExerciseProps) {
         </div>
       ))}
 
-      <button
-        className="btn btn-primary w-full mt-4"
-        disabled={!allFilled}
-        style={{ opacity: allFilled ? 1 : 0.4 }}
-        onClick={() => setDone(true)}
-      >
-        {allFilled ? 'Complete grounding' : 'Fill in all senses to continue'}
+      <button className="btn btn-primary w-full mt-4" onClick={() => setDone(true)}>
+        {doneCount === 15 ? 'Complete grounding' : 'Finish'}
       </button>
       <div style={{ height: 16 }} />
     </div>

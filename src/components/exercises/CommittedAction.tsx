@@ -14,7 +14,7 @@ export default function OneSmallStep({ onComplete }: ExerciseProps) {
     setForm(f => ({ ...f, [key]: val }));
   }
 
-  const canSubmit = Object.values(form).every(v => v.trim().length > 0);
+  const canSubmit = form.step.trim().length > 0;
 
   if (done) {
     return (
@@ -26,14 +26,18 @@ export default function OneSmallStep({ onComplete }: ExerciseProps) {
             <strong style={{ color: 'var(--text-1)' }}>What I'm committed to:</strong><br />
             {form.step}
           </div>
-          <div style={{ marginBottom: 12 }}>
-            <strong style={{ color: 'var(--text-1)' }}>Why it matters:</strong><br />
-            {form.value}
-          </div>
-          <div>
-            <strong style={{ color: 'var(--text-1)' }}>When:</strong><br />
-            {form.when}
-          </div>
+          {form.value.trim() && (
+            <div style={{ marginBottom: 12 }}>
+              <strong style={{ color: 'var(--text-1)' }}>Why it matters:</strong><br />
+              {form.value}
+            </div>
+          )}
+          {form.when.trim() && (
+            <div>
+              <strong style={{ color: 'var(--text-1)' }}>When:</strong><br />
+              {form.when}
+            </div>
+          )}
         </div>
         <p style={{ fontSize: 14, color: 'var(--text-3)', maxWidth: 300, lineHeight: 1.6, textAlign: 'center' }}>
           You don't need to feel ready. You don't need anxiety to go away. You just need to take one step.
@@ -85,7 +89,7 @@ export default function OneSmallStep({ onComplete }: ExerciseProps) {
 
         <div className="form-group">
           <label className="form-label">When and where will you do it?</label>
-          <div className="form-hint">An implementation intention makes it 2–3× more likely to happen.</div>
+          <div className="form-hint">Deciding exactly when and where makes it easier to follow through.</div>
           <input
             type="text"
             className="form-input"

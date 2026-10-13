@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { PhysiologicalSigh } from './exercises/BreathingExercise';
 import { Settings } from '../types';
+import CrisisLines from './CrisisLines';
 
 type Step = 'breathe' | 'ground' | 'accept' | 'after' | 'support' | 'calmer';
 
@@ -14,7 +15,7 @@ const GROUND_PROMPTS = [
 
 const ACCEPT_LINES = [
   'Name it gently: "This is a wave of anxiety."',
-  'It is uncomfortable, and it is not dangerous.',
+  'It is uncomfortable, and like every wave before it, it will pass.',
   'You don\'t have to push it away. Let it rise and fall, like a wave.',
   'Feel your feet on the floor. You are still here, and so is the ground.',
 ];
@@ -45,21 +46,27 @@ export default function SOSFlow({ settings, onClose, onFinish }: Props) {
             </svg>
           </button>
           <span className="exercise-cat-label" style={{ color: 'var(--cat-acceptance)' }}>SOS</span>
-          {(step === 'breathe' || step === 'ground' || step === 'accept') && (
-            <button
-              className="btn btn-ghost sos-skip"
-              onClick={() => setStep(step === 'breathe' ? 'ground' : step === 'ground' ? 'accept' : 'after')}
-            >
-              Skip
-            </button>
-          )}
+          <div className="sos-top-actions">
+            {(step === 'breathe' || step === 'ground' || step === 'accept') && (
+              <button
+                className="btn btn-ghost sos-skip"
+                onClick={() => setStep(step === 'breathe' ? 'ground' : step === 'ground' ? 'accept' : 'after')}
+              >
+                Skip
+              </button>
+            )}
+            {step !== 'support' && (
+              <button className="btn sos-help-btn" onClick={() => setStep('support')}>Get help</button>
+            )}
+          </div>
         </div>
 
         <div className="exercise-scroll">
           {step === 'breathe' && (
             <>
-              <div className="sos-heading">You're safe. This will pass.</div>
+              <div className="sos-heading">This feeling will pass.</div>
               <p className="sos-sub">Breathe with the circle. Two breaths in through your nose, one long breath out.</p>
+              <p className="sos-caveat">If you have new chest pain, trouble breathing, or you're not safe where you are, call 911.</p>
               <PhysiologicalSigh onComplete={() => setStep('ground')} autoStart reps={3} />
             </>
           )}
@@ -139,19 +146,8 @@ export default function SOSFlow({ settings, onClose, onFinish }: Props) {
                     <span className="support-detail">{settings.contactPhone}</span>
                   </a>
                 )}
-                <a className="support-btn" href="tel:988">
-                  <span className="support-title">Call 988</span>
-                  <span className="support-detail">Suicide Crisis Helpline · Canada &amp; US · 24/7</span>
-                </a>
-                <a className="support-btn" href="sms:988">
-                  <span className="support-title">Text 988</span>
-                  <span className="support-detail">If talking feels like too much</span>
-                </a>
-                <a className="support-btn support-urgent" href="tel:911">
-                  <span className="support-title">Call 911</span>
-                  <span className="support-detail">If you are in immediate danger</span>
-                </a>
               </div>
+              <div className="mt-4"><CrisisLines /></div>
               {!hasContact && (
                 <p className="caption-text mt-4">Tip: add a trusted contact in Settings so they're one tap away here.</p>
               )}
@@ -160,7 +156,7 @@ export default function SOSFlow({ settings, onClose, onFinish }: Props) {
           )}
 
           {step !== 'support' && (
-            <a className="sos-footer-link" href="tel:988">Need to talk to someone now? Call or text 988</a>
+            <a className="btn btn-outline w-full sos-footer-btn" href="tel:988">Talk to someone now · Call 988</a>
           )}
         </div>
       </div>

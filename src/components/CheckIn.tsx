@@ -5,6 +5,7 @@ import { exercises } from '../data/exercises';
 import ExerciseCard from './ExerciseCard';
 
 interface Props {
+  onOpenSOS: () => void;
   onOpenExercise: (exercise: Exercise) => void;
   onSaveCheckin: (entry: CheckinEntry) => void;
   onUpdateNote: (id: string, note: string) => void;
@@ -14,7 +15,7 @@ type Phase = 'intensity' | 'questions' | 'results';
 
 const LEVEL_WORDS = ['Calm', 'Calm', 'Mild', 'Mild', 'Noticeable', 'Moderate', 'Moderate', 'Strong', 'Strong', 'Intense', 'Overwhelming'];
 
-export default function CheckIn({ onOpenExercise, onSaveCheckin, onUpdateNote }: Props) {
+export default function CheckIn({ onOpenSOS, onOpenExercise, onSaveCheckin, onUpdateNote }: Props) {
   const [phase, setPhase] = useState<Phase>('intensity');
   const [level, setLevel] = useState(5);
   const [currentQ, setCurrentQ] = useState(0);
@@ -24,15 +25,22 @@ export default function CheckIn({ onOpenExercise, onSaveCheckin, onUpdateNote }:
   const [note, setNote] = useState('');
   const [noteSaved, setNoteSaved] = useState(false);
   const submitted = useRef(false);
+  const advancing = useRef(false);
+  const [highDistress, setHighDistress] = useState(false);
 
   function handleSelect(optionId: string) {
-    if (submitted.current) return;
+    if (submitted.current || advancing.current) return;
     const newAnswers = [...answers];
     newAnswers[currentQ] = optionId;
     setAnswers(newAnswers);
 
     if (currentQ < questions.length - 1) {
-      setTimeout(() => setCurrentQ(q => q + 1), 220);
+      advancing.current = true;
+      const next = currentQ + 1;
+      setTimeout(() => {
+        setCurrentQ(next);
+        advancing.current = false;
+      }, 220);
     } else {
       submitted.current = true;
       computeResults(newAnswers);
@@ -67,6 +75,7 @@ export default function CheckIn({ onOpenExercise, onSaveCheckin, onUpdateNote }:
       focus: topCats,
     });
     setEntryId(id);
+    setHighDistress(level >= 8 || finalAnswers[0] === 'q1-overwhelmed');
     setPhase('results');
   }
 
@@ -78,6 +87,7 @@ export default function CheckIn({ onOpenExercise, onSaveCheckin, onUpdateNote }:
 
   function reset() {
     submitted.current = false;
+    setHighDistress(false);
     setPhase('intensity');
     setLevel(5);
     setCurrentQ(0);
@@ -135,6 +145,17 @@ export default function CheckIn({ onOpenExercise, onSaveCheckin, onUpdateNote }:
             Based on your check-in, these practices fit what you're experiencing right now.
           </div>
         </div>
+
+        {highDistress && (
+          <div className="card distress-card">
+            <div className="distress-title">That sounds really hard right now</div>
+            <p className="distress-text">If it feels like too much, start with SOS, or talk to someone.</p>
+            <button className="btn btn-primary w-full" style={{ backgroundColor: 'var(--cat-acceptance)' }} onClick={onOpenSOS}>
+              Open SOS
+            </button>
+            <a className="btn btn-outline w-full mt-4" href="tel:988">Call or text 988</a>
+          </div>
+        )}
 
         <div className="results-section-title">Recommended for you</div>
         <div className="results-exercises">
@@ -194,6 +215,13 @@ export default function CheckIn({ onOpenExercise, onSaveCheckin, onUpdateNote }:
           </button>
         ))}
       </div>
+
+      <button
+        className="btn btn-ghost mt-4"
+        onClick={() => (currentQ === 0 ? setPhase('intensity') : setCurrentQ(currentQ - 1))}
+      >
+        ← Back
+      </button>
     </div>
   );
 }

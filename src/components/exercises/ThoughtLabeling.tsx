@@ -1,11 +1,20 @@
 import { useState } from 'react';
 import { ExerciseProps } from '../../types';
 
+// Keep the thought verbatim ("…the thought that I'm worthless"); only soften a leading capital
+// on ordinary words so the sentence reads naturally.
+export function asEmbeddedThought(raw: string): string {
+  const t = raw.trim().replace(/[.!?…]+$/, '');
+  if (/^I\b/.test(t) || /^[A-Z]{2,}\b/.test(t)) return t;
+  return t.charAt(0).toLowerCase() + t.slice(1);
+}
+
 // ─── Thought Labeling ─────────────────────────────────
 export function ThoughtLabeling({ onComplete }: ExerciseProps) {
   const [thought, setThought] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [count, setCount] = useState(0);
+  const [finished, setFinished] = useState(false);
 
   function submit() {
     if (!thought.trim()) return;
@@ -18,7 +27,7 @@ export function ThoughtLabeling({ onComplete }: ExerciseProps) {
     setSubmitted(false);
   }
 
-  if (count >= 3 && !submitted) {
+  if (finished) {
     return (
       <div className="completion-screen">
         <span className="completion-icon">🍃</span>
@@ -57,7 +66,7 @@ export function ThoughtLabeling({ onComplete }: ExerciseProps) {
             disabled={!thought.trim()}
             onClick={submit}
           >
-            Transform it
+            Notice it
           </button>
         )}
       </div>
@@ -67,13 +76,13 @@ export function ThoughtLabeling({ onComplete }: ExerciseProps) {
           <div className="label-box">
             <div className="label-box-tag">Step 1 — Defusion</div>
             <div className="label-box-text">
-              I'm having the thought that <em>{thought.toLowerCase().replace(/^i('m| am) /, '')}</em>.
+              I'm having the thought that <em>{asEmbeddedThought(thought)}</em>.
             </div>
           </div>
           <div className="label-box">
             <div className="label-box-tag">Step 2 — Deeper defusion</div>
             <div className="label-box-text">
-              I notice I'm having the thought that <em>{thought.toLowerCase().replace(/^i('m| am) /, '')}</em>.
+              I notice I'm having the thought that <em>{asEmbeddedThought(thought)}</em>.
             </div>
           </div>
           <div className="label-box" style={{ borderColor: 'var(--cat-grounding)' }}>
@@ -83,11 +92,11 @@ export function ThoughtLabeling({ onComplete }: ExerciseProps) {
             </div>
           </div>
 
-          <button
-            className="btn btn-secondary w-full mt-4"
-            onClick={nextThought}
-          >
-            Try another thought ({count}/3 done)
+          <button className="btn btn-secondary w-full mt-4" onClick={nextThought}>
+            Notice another thought
+          </button>
+          <button className="btn btn-primary w-full mt-4" onClick={() => setFinished(true)}>
+            Finish ({count} noticed)
           </button>
         </div>
       )}
@@ -131,7 +140,7 @@ export function NameTheStory({ onComplete }: ExerciseProps) {
           <div className="label-box" style={{ marginBottom: 20 }}>
             <div className="label-box-tag">Your practice phrase</div>
             <div className="label-box-text" style={{ fontSize: 18 }}>
-              "Oh, there goes {storyName.trim().startsWith('The') ? '' : 'the '}{storyName.trim()} again."
+              "Oh, there goes {/^the\b/i.test(storyName.trim()) ? '' : 'the '}{storyName.trim().replace(/^The\b/, 'the')} again."
             </div>
           </div>
 

@@ -5,7 +5,7 @@ import { PhysiologicalSigh, Breathing478 } from './exercises/BreathingExercise';
 import { Grounding54321, BodyScan } from './exercises/GroundingExercise';
 import LeavesOnStream from './exercises/LeavesOnStream';
 import { ThoughtLabeling, NameTheStory } from './exercises/ThoughtLabeling';
-import { DAREResponse, SoftenAllow } from './exercises/AcceptanceExercise';
+import { MakeRoom, SoftenAllow } from './exercises/AcceptanceExercise';
 import ValuesCompass from './exercises/ValuesCompass';
 import { ObserverSelf, PresentMoment } from './exercises/MindfulnessExercise';
 import OneSmallStep from './exercises/CommittedAction';
@@ -21,7 +21,7 @@ const EXERCISE_MAP: Record<string, ExerciseComponent> = {
   LeavesOnStream,
   ThoughtLabeling,
   NameTheStory,
-  DAREResponse,
+  MakeRoom,
   SoftenAllow,
   ValuesCompass,
   ObserverSelf,

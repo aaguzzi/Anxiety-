@@ -2,9 +2,10 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { Tab, Exercise, AppState, CheckinEntry, PracticeHistory, Settings } from './types';
+import { Tab, Exercise, CheckinEntry, PracticeHistory, Settings } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { localDateKey } from './lib/dates';
+import { cancelReminder } from './lib/reminders';
 import Navigation from './components/Navigation';
 import Home from './components/Home';
 import CheckIn from './components/CheckIn';
@@ -13,18 +14,16 @@ import ExerciseModal from './components/ExerciseModal';
 import SOSFlow from './components/SOSFlow';
 import SettingsView from './components/SettingsView';
 import HistoryView from './components/HistoryView';
+import WelcomeSheet from './components/WelcomeSheet';
 
-const defaultState: AppState = {
-  completedToday: [],
-  streak: 0,
-  lastActiveDate: '',
-};
+const STORAGE_KEYS = ['anxiety-companion', 'ac-checkins', 'ac-history', 'ac-settings'];
 
 const defaultSettings: Settings = {
   reminderEnabled: false,
   reminderTime: '08:00',
   contactName: '',
   contactPhone: '',
+  onboarded: false,
 };
 
 type Overlay = 'none' | 'sos' | 'settings' | 'history';
@@ -33,7 +32,6 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [activeExercise, setActiveExercise] = useState<Exercise | null>(null);
   const [overlay, setOverlay] = useState<Overlay>('none');
-  const [appState, setAppState] = useLocalStorage<AppState>('anxiety-companion', defaultState);
   const [checkins, setCheckins] = useLocalStorage<CheckinEntry[]>('ac-checkins', []);
   const [history, setHistory] = useLocalStorage<PracticeHistory>('ac-history', {});
   const [settings, setSettings] = useLocalStorage<Settings>('ac-settings', defaultSettings);
@@ -63,22 +61,17 @@ export default function App() {
   }, []);
 
   const today = localDateKey();
-  const completedToday = appState.lastActiveDate === today ? appState.completedToday : [];
+  const completedToday = history[today] ?? [];
+  const monthPrefix = today.slice(0, 7);
+  const practicesThisMonth = Object.entries(history)
+    .filter(([day]) => day.startsWith(monthPrefix))
+    .reduce((n, [, ids]) => n + ids.filter(id => id !== 'sos').length, 0);
 
   const recordPractice = useCallback((exerciseId: string) => {
-    setAppState(prev => {
-      const isNewDay = prev.lastActiveDate !== today;
-      const daysDiff = prev.lastActiveDate
-        ? Math.round((new Date(today).getTime() - new Date(prev.lastActiveDate).getTime()) / 86400000)
-        : 1;
-      const newStreak = isNewDay
-        ? daysDiff === 1 ? prev.streak + 1 : 1
-        : prev.streak;
-      const done = isNewDay ? [exerciseId] : [...new Set([...prev.completedToday, exerciseId])];
-      return { completedToday: done, streak: newStreak, lastActiveDate: today };
-    });
-    setHistory(prev => ({ ...prev, [today]: [...(prev[today] ?? []), exerciseId] }));
-  }, [today, setAppState, setHistory]);
+    // Read the date at completion time, not render time, so a session that crosses midnight lands on the right day.
+    const day = localDateKey();
+    setHistory(prev => ({ ...prev, [day]: [...(prev[day] ?? []), exerciseId] }));
+  }, [setHistory]);
 
   const handleExerciseComplete = useCallback((exerciseId: string) => {
     recordPractice(exerciseId);
@@ -93,12 +86,19 @@ export default function App() {
     setCheckins(prev => prev.map(c => (c.id === id ? { ...c, note } : c)));
   }, [setCheckins]);
 
+  const deleteAllData = useCallback(async () => {
+    await cancelReminder();
+    STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
+    window.location.reload();
+  }, []);
+
   return (
     <div className="app">
       <div className="screen">
         {tab === 'home' && (
           <Home
-            appState={{ ...appState, completedToday }}
+            completedToday={completedToday}
+            practicesThisMonth={practicesThisMonth}
             checkins={checkins}
             history={history}
             settings={settings}
@@ -109,7 +109,12 @@ export default function App() {
           />
         )}
         {tab === 'checkin' && (
-          <CheckIn onOpenExercise={setActiveExercise} onSaveCheckin={saveCheckin} onUpdateNote={updateNote} />
+          <CheckIn
+            onOpenSOS={() => setOverlay('sos')}
+            onOpenExercise={setActiveExercise}
+            onSaveCheckin={saveCheckin}
+            onUpdateNote={updateNote}
+          />
         )}
         {tab === 'toolbox' && (
           <Toolbox onOpenExercise={setActiveExercise} completedToday={completedToday} />
@@ -118,18 +123,22 @@ export default function App() {
 
       <Navigation activeTab={tab} onTabChange={setTab} />
 
-      {!activeExercise && overlay === 'none' && (
-        <button className="sos-fab" onClick={() => setOverlay('sos')} aria-label="SOS: I need help calming down now">
-          SOS
-        </button>
-      )}
-
       {activeExercise && (
         <ExerciseModal
           exercise={activeExercise}
           onClose={() => setActiveExercise(null)}
           onComplete={() => handleExerciseComplete(activeExercise.id)}
         />
+      )}
+
+      {overlay === 'none' && settings.onboarded && (
+        <button
+          className={`sos-fab ${activeExercise ? 'in-exercise' : ''}`}
+          onClick={() => setOverlay('sos')}
+          aria-label="SOS: I need help calming down now"
+        >
+          SOS
+        </button>
       )}
 
       {overlay === 'sos' && (
@@ -140,10 +149,19 @@ export default function App() {
         />
       )}
       {overlay === 'settings' && (
-        <SettingsView settings={settings} onChange={setSettings} onClose={() => setOverlay('none')} />
+        <SettingsView
+          settings={settings}
+          onChange={setSettings}
+          onDeleteAll={deleteAllData}
+          onClose={() => setOverlay('none')}
+        />
       )}
       {overlay === 'history' && (
         <HistoryView checkins={checkins} onClose={() => setOverlay('none')} />
+      )}
+
+      {!settings.onboarded && (
+        <WelcomeSheet onAccept={() => setSettings(prev => ({ ...prev, onboarded: true }))} />
       )}
     </div>
   );

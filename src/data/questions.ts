@@ -40,7 +40,7 @@ export const questions: Question[] = [
         id: 'q1-disconnected',
         text: 'Disconnected or numb',
         emoji: '🌫️',
-        scores: { mindfulness: 3, grounding: 2, acceptance: 1 },
+        scores: { grounding: 3, mindfulness: 2, acceptance: 1 },
       },
     ],
   },

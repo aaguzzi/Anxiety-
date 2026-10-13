@@ -632,7 +632,7 @@ html, body, #root {
   font-style: italic;
 }
 
-/* ─── DARE / Step-based ───────────────────────────── */
+/* ─── Step-based ────── ───────────────────────────── */
 .step-list {
   display: flex;
   flex-direction: column;
@@ -1772,4 +1772,177 @@ html, body, #root {
   font-style: italic;
   border-left: 3px solid var(--border-focus);
   padding-left: 12px;
+}
+
+/* ─── Red-team fixes ──────────────────────────────── */
+a.btn { text-decoration: none; }
+
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.sos-fab { z-index: 250; }
+
+.exercise-scroll { padding-bottom: 110px; }
+
+button.sense-check {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button.sense-check.done { background: var(--cat-grounding); }
+
+.sos-top-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sos-top-actions .sos-skip { margin-left: 0; }
+
+.sos-help-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  background: var(--cat-acceptance);
+  color: white;
+}
+
+.sos-caveat {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+.sos-footer-btn {
+  margin-top: 28px;
+  font-size: 15px;
+}
+
+.distress-card {
+  padding: 20px;
+  margin-bottom: 28px;
+  border: 1.5px solid var(--cat-acceptance);
+}
+
+.distress-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: 6px;
+}
+
+.distress-text {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.55;
+  margin-bottom: 16px;
+}
+
+.welcome-overlay { z-index: 300; }
+
+.welcome-scroll { padding-top: 48px; }
+
+.welcome-icon {
+  font-size: 44px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.welcome-text {
+  font-size: 16px;
+  color: var(--text-2);
+  line-height: 1.65;
+  margin: 12px 0;
+}
+
+.welcome-text strong { color: var(--text-1); }
+
+.welcome-crisis { padding: 16px; margin: 20px 0; }
+
+.welcome-crisis .support-btn { margin-top: 10px; box-shadow: none; }
+
+.welcome-crisis-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cat-acceptance);
+}
+
+.welcome-sos {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: var(--cat-acceptance);
+  color: white;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.hold-option {
+  text-align: center;
+  max-width: 320px;
+}
+
+.hold-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.hold-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--cat-breathing);
+}
+
+.breathing-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.breathing-controls .btn { min-width: 120px; }
+
+.danger-text { color: #A04848; }
+.danger-bg { background: #A04848; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .breathing-circle, .breathing-ring { transition: none !important; }
+  .leaf {
+    animation: none !important;
+    opacity: 1;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.sos-fab.in-exercise {
+  top: 14px;
+  bottom: auto;
+  right: 16px;
+  width: auto;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  box-shadow: var(--shadow);
 }

@@ -53,12 +53,7 @@ export interface Settings {
   reminderTime: string;
   contactName: string;
   contactPhone: string;
+  onboarded: boolean;
 }
 
 export type PracticeHistory = Record<string, string[]>;
-
-export interface AppState {
-  completedToday: string[];
-  streak: number;
-  lastActiveDate: string;
-}

@@ -91,7 +91,7 @@ export function PresentMoment({ onComplete }: ExerciseProps) {
     setAnswers(a => ({ ...a, [key]: val }));
   }
 
-  const allFilled = Object.values(answers).every(v => v.trim().length > 0);
+  const allFilled = Object.values(answers).some(v => v.trim().length > 0);
 
   if (done) {
     return (
@@ -102,9 +102,9 @@ export function PresentMoment({ onComplete }: ExerciseProps) {
           You just landed in the present moment. Carry your intention forward — not as pressure, but as a gentle compass.
         </div>
         <div style={{ width: '100%', background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '16px 20px', fontSize: 14, color: 'var(--text-2)', lineHeight: 1.7, textAlign: 'left' }}>
-          <strong>Right now:</strong> {answers.doing}<br />
-          <strong>Noticing:</strong> {answers.noticing}<br />
-          <strong>Intention:</strong> {answers.intention}
+          {answers.doing.trim() && <><strong>Right now:</strong> {answers.doing}<br /></>}
+          {answers.noticing.trim() && <><strong>Noticing:</strong> {answers.noticing}<br /></>}
+          {answers.intention.trim() && <><strong>Intention:</strong> {answers.intention}</>}
         </div>
         <button className="btn btn-primary mt-4" onClick={onComplete}>Finish</button>
       </div>

@@ -9,6 +9,10 @@ export function remindersSupported(): boolean {
   return Capacitor.isNativePlatform();
 }
 
+export async function cancelReminder(): Promise<void> {
+  if (remindersSupported()) await LocalNotifications.cancel({ notifications: [{ id: REMINDER_ID }] });
+}
+
 export async function applyReminder(enabled: boolean, time: string): Promise<ReminderResult> {
   if (!remindersSupported()) return 'unsupported';
 

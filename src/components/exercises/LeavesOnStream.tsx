@@ -106,7 +106,7 @@ export default function LeavesOnStream({ onComplete }: ExerciseProps) {
         </p>
       )}
 
-      {count >= 3 && (
+      {count >= 1 && (
         <button
           className="btn btn-primary w-full"
           style={{ backgroundColor: 'var(--cat-defusion)' }}
