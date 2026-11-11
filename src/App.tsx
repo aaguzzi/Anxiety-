@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { Tab, Exercise, CheckinEntry, PracticeHistory, Settings } from './types';
+import { Tab, Exercise, CheckinEntry, PracticeHistory, Settings, Meditation } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { localDateKey } from './lib/dates';
 import { cancelReminder } from './lib/reminders';
@@ -15,8 +15,10 @@ import SOSFlow from './components/SOSFlow';
 import SettingsView from './components/SettingsView';
 import HistoryView from './components/HistoryView';
 import WelcomeSheet from './components/WelcomeSheet';
+import Meditate from './components/Meditate';
+import MeditationPlayer from './components/MeditationPlayer';
 
-const STORAGE_KEYS = ['anxiety-companion', 'ac-checkins', 'ac-history', 'ac-settings'];
+const STORAGE_KEYS = ['anxiety-companion', 'ac-checkins', 'ac-history', 'ac-settings', 'ac-meditations'];
 
 const defaultSettings: Settings = {
   reminderEnabled: false,
@@ -24,6 +26,9 @@ const defaultSettings: Settings = {
   contactName: '',
   contactPhone: '',
   onboarded: false,
+  anthropicKey: '',
+  voiceChoice: 'auto',
+  voiceBench: null,
 };
 
 type Overlay = 'none' | 'sos' | 'settings' | 'history';
@@ -35,14 +40,17 @@ export default function App() {
   const [checkins, setCheckins] = useLocalStorage<CheckinEntry[]>('ac-checkins', []);
   const [history, setHistory] = useLocalStorage<PracticeHistory>('ac-history', {});
   const [settings, setSettings] = useLocalStorage<Settings>('ac-settings', defaultSettings);
+  const [meditations, setMeditations] = useLocalStorage<Meditation[]>('ac-meditations', []);
+  const [activeMeditation, setActiveMeditation] = useState<Meditation | null>(null);
 
-  const navRef = useRef({ tab, activeExercise, overlay });
-  navRef.current = { tab, activeExercise, overlay };
+  const navRef = useRef({ tab, activeExercise, overlay, activeMeditation });
+  navRef.current = { tab, activeExercise, overlay, activeMeditation };
 
   useEffect(() => {
     const listener = CapApp.addListener('backButton', () => {
-      const { tab: t, activeExercise: ex, overlay: o } = navRef.current;
+      const { tab: t, activeExercise: ex, overlay: o, activeMeditation: med } = navRef.current;
       if (o !== 'none') setOverlay('none');
+      else if (med) setActiveMeditation(null);
       else if (ex) setActiveExercise(null);
       else if (t !== 'home') setTab('home');
       else CapApp.exitApp();
@@ -55,6 +63,7 @@ export default function App() {
     const listener = LocalNotifications.addListener('localNotificationActionPerformed', () => {
       setOverlay('none');
       setActiveExercise(null);
+      setActiveMeditation(null);
       setTab('home');
     });
     return () => { listener.then(l => l.remove()); };
@@ -116,6 +125,16 @@ export default function App() {
             onUpdateNote={updateNote}
           />
         )}
+        {tab === 'meditate' && (
+          <Meditate
+            apiKey={settings.anthropicKey}
+            meditations={meditations}
+            onCreated={m => { setMeditations(prev => [...prev, m]); setActiveMeditation(m); }}
+            onPlay={setActiveMeditation}
+            onDelete={id => setMeditations(prev => prev.filter(m => m.id !== id))}
+            onOpenSettings={() => setOverlay('settings')}
+          />
+        )}
         {tab === 'toolbox' && (
           <Toolbox onOpenExercise={setActiveExercise} completedToday={completedToday} />
         )}
@@ -131,10 +150,21 @@ export default function App() {
         />
       )}
 
+      {activeMeditation && (
+        <MeditationPlayer
+          key={activeMeditation.id}
+          meditation={activeMeditation}
+          settings={settings}
+          onSaveBench={bench => setSettings(prev => ({ ...prev, voiceBench: bench }))}
+          onClose={() => setActiveMeditation(null)}
+          onComplete={() => { recordPractice('meditation'); setActiveMeditation(null); }}
+        />
+      )}
+
       {overlay === 'none' && settings.onboarded && (
         <button
-          className={`sos-fab ${activeExercise ? 'in-exercise' : ''}`}
-          onClick={() => setOverlay('sos')}
+          className={`sos-fab ${activeExercise || activeMeditation ? 'in-exercise' : ''}`}
+          onClick={() => { setActiveMeditation(null); setOverlay('sos'); }}
           aria-label="SOS: I need help calming down now"
         >
           SOS

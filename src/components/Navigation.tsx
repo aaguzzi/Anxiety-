@@ -30,6 +30,16 @@ export default function Navigation({ activeTab, onTabChange }: Props) {
       </button>
 
       <button
+        className={`nav-tab ${activeTab === 'meditate' ? 'active' : ''}`}
+        onClick={() => onTabChange('meditate')}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Meditate
+      </button>
+
+      <button
         className={`nav-tab ${activeTab === 'toolbox' ? 'active' : ''}`}
         onClick={() => onTabChange('toolbox')}
       >

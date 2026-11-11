@@ -3,6 +3,7 @@ import { Settings } from '../types';
 import { applyReminder, remindersSupported, ReminderResult } from '../lib/reminders';
 import { formatTime12 } from '../lib/dates';
 import CrisisLines from './CrisisLines';
+import MeditationSettings from './MeditationSettings';
 
 export const PRIVACY_URL = 'https://d2l5gmsioco5hq.cloudfront.net/privacy.html';
 
@@ -86,6 +87,8 @@ export default function SettingsView({ settings, onChange, onDeleteAll, onClose 
               )}
             </div>
           </div>
+
+          <MeditationSettings settings={settings} onChange={onChange} />
 
           <div className="settings-section">
             <div className="section-label">Trusted contact</div>

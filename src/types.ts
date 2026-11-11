@@ -7,7 +7,7 @@ export type Category =
   | 'mindfulness'
   | 'action';
 
-export type Tab = 'home' | 'checkin' | 'toolbox';
+export type Tab = 'home' | 'checkin' | 'meditate' | 'toolbox';
 
 export interface Exercise {
   id: string;
@@ -54,6 +54,31 @@ export interface Settings {
   contactName: string;
   contactPhone: string;
   onboarded: boolean;
+  anthropicKey: string;
+  voiceChoice: VoiceChoice;
+  voiceBench: VoiceBench | null;
+}
+
+export type VoiceChoice = 'auto' | 'neural' | 'system';
+
+export interface VoiceBench {
+  rtf: number;
+  cores: number;
+  ramMb: number;
+}
+
+export interface MeditationSegment {
+  text: string;
+  pause: number;
+}
+
+export interface Meditation {
+  id: string;
+  title: string;
+  prompt: string;
+  minutes: number;
+  createdAt: string;
+  segments: MeditationSegment[];
 }
 
 export type PracticeHistory = Record<string, string[]>;

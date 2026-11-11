@@ -1946,3 +1946,225 @@ button.sense-check.done { background: var(--cat-grounding); }
   font-size: 13px;
   box-shadow: var(--shadow);
 }
+
+/* ─── Custom meditations ──────────────────────────── */
+.nav-tab { min-width: 0; }
+
+.mt-2 { margin-top: 8px; }
+.text-center { text-align: center; }
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chip {
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chip.selected {
+  background: var(--text-1);
+  border-color: var(--text-1);
+  color: white;
+}
+
+.chip:disabled { opacity: 0.5; }
+
+.form-error {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(160, 72, 72, 0.08);
+  color: #A04848;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.key-row {
+  display: flex;
+  gap: 8px;
+}
+
+.key-row .form-input { flex: 1; min-width: 0; }
+.key-toggle { padding: 10px 16px; font-size: 14px; }
+
+.voice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.voice-actions .btn { padding: 10px 18px; font-size: 14px; }
+
+.saved-med {
+  display: flex;
+  align-items: center;
+  padding: 6px 6px 6px 0;
+}
+
+.saved-med-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 8px 12px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.saved-med-play {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--cat-mindfulness);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.saved-med-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.saved-med-text .settings-row-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.saved-med-remove {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.saved-med-confirm { display: flex; flex-shrink: 0; }
+.saved-med-confirm .btn { padding: 8px 10px; font-size: 14px; }
+
+.player-overlay { z-index: 210; }
+
+.player-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 28px 40px;
+  text-align: center;
+}
+
+.player-title {
+  font-size: 22px;
+  font-weight: 800;
+  font-family: var(--font-serif);
+  color: var(--text-1);
+}
+
+.player-orb {
+  width: 120px;
+  height: 120px;
+  margin: 36px 0 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #A9C3D6, var(--cat-mindfulness));
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
+.player-orb.breathing { animation: orbBreath 9s ease-in-out infinite; }
+
+@keyframes orbBreath {
+  0%, 100% { transform: scale(0.88); opacity: 0.45; }
+  45%      { transform: scale(1.08); opacity: 0.7; }
+}
+
+.player-caption {
+  flex: 1;
+  min-height: 110px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1.6;
+  font-family: var(--font-serif);
+  color: var(--text-1);
+}
+
+.player-caption span { animation: fadeIn 700ms ease both; }
+.player-status { color: var(--text-3); font-style: italic; }
+
+.player-progress {
+  width: 100%;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.player-progress-fill {
+  height: 100%;
+  background: var(--cat-mindfulness);
+  transition: width 600ms ease;
+}
+
+.player-time {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.player-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface-2);
+  color: var(--text-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.player-btn-main {
+  width: 76px;
+  height: 76px;
+  background: var(--text-1);
+  color: white;
+}
+
+.player-btn:disabled { opacity: 0.35; }
