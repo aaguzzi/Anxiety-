@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { Settings, VoiceBench } from '../types';
+import { PRONUNCIATION_VERSION, spokenText } from './pronunciation';
 
 type NeuralModel = 'piper' | 'kokoro' | 'supertonic';
 
@@ -111,8 +112,9 @@ function neuralEngine(voice: VoiceOption, speed: number): VoiceEngine {
   const sid = voice.sid ?? 0;
   const ready = new Map<string, Promise<unknown>>();
   // Generated speech is cached per line, voice and speed, so changing either never replays a stale file.
-  const fileId = (key: string) => `${key}-${voice.id}-${Math.round(speed * 100)}`;
-  const prepare = (key: string, text: string) => NeuralVoice.prepare({ id: fileId(key), text, speed, model, sid });
+  const fileId = (key: string) => `${key}-${voice.id}-${Math.round(speed * 100)}-p${PRONUNCIATION_VERSION}`;
+  const prepare = (key: string, text: string) =>
+    NeuralVoice.prepare({ id: fileId(key), text: spokenText(text), speed, model, sid });
   // Bumped on halt/stop so a line that was still being generated doesn't start playing afterwards.
   let generation = 0;
   return {
