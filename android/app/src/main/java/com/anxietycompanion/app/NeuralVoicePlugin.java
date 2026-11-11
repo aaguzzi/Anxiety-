@@ -34,10 +34,12 @@ public class NeuralVoicePlugin extends Plugin {
     private MediaPlayer player;
     private PluginCall playCall;
     private AudioFocusRequest focusRequest;
+    private final MeditationSession.Listener sessionListener =
+        (status, index) -> notifyListeners("sessionState", state(status, index));
 
     @Override
     public void load() {
-        MeditationSession.listener = (status, index) -> notifyListeners("sessionState", state(status, index));
+        MeditationSession.listener = sessionListener;
     }
 
     private static JSObject state(String status, int index) {
@@ -230,7 +232,7 @@ public class NeuralVoicePlugin extends Plugin {
 
         getActivity().runOnUiThread(() -> {
             try {
-                if (MeditationSession.current != null) MeditationSession.current.stop();
+                if (MeditationSession.current != null) MeditationSession.current.replace();
                 finishPlayback(true);
                 MeditationSession session = new MeditationSession(
                     getContext(), title, ids, texts, pauses, model, sid, speed, steps, lead);
@@ -278,7 +280,9 @@ public class NeuralVoicePlugin extends Plugin {
     public void sessionState(PluginCall call) {
         getActivity().runOnUiThread(() -> {
             MeditationSession session = MeditationSession.current;
-            call.resolve(session != null ? state(session.status(), session.index()) : state("none", 0));
+            call.resolve(session != null
+                ? state(session.status(), session.index())
+                : state(MeditationSession.lastStatus, MeditationSession.lastIndex));
         });
     }
 
@@ -313,7 +317,10 @@ public class NeuralVoicePlugin extends Plugin {
     protected void handleOnDestroy() {
         epoch.incrementAndGet();
         releasePlayer();
-        MeditationSession.listener = null;
-        if (MeditationSession.current != null) MeditationSession.current.stop();
+        // A relaunched activity may already have registered its own plugin; leave its session alone.
+        if (MeditationSession.listener == sessionListener) {
+            MeditationSession.listener = null;
+            if (MeditationSession.current != null) MeditationSession.current.stop();
+        }
     }
 }

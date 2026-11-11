@@ -26,6 +26,8 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
   const engineRef = useRef<VoiceEngine | null>(null);
   // Set while the phone itself is playing the meditation (natural voices), so it survives screen-off.
   const backgroundRef = useRef<BackgroundSession | null>(null);
+  // False until the playback service has confirmed it started; a "stopped" before then is a failed start.
+  const backgroundLiveRef = useRef(false);
   const runRef = useRef(0);
   const statusRef = useRef<Status>('preparing');
   // Where playback is, so a pause in the silence after a line resumes with the rest of that silence
@@ -98,7 +100,7 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
     setIndex(Math.min(state.index, segments.length - 1));
     if (state.status === 'stopped' || state.status === 'none') {
       // Stopped from the notification.
-      if (statusRef.current !== 'done') onClose();
+      if (backgroundLiveRef.current && statusRef.current !== 'done') onClose();
     } else if (state.status === 'error') {
       // The natural voice failed part-way: carry on from here with the phone's own voice.
       backgroundRef.current = null;
@@ -112,6 +114,7 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
 
   async function startInBackground(session: BackgroundSession) {
     backgroundRef.current = session;
+    backgroundLiveRef.current = false;
     show('preparing');
     await session.start(
       meditation.title,
@@ -122,6 +125,7 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
       })),
       onBackgroundState,
     );
+    backgroundLiveRef.current = true;
   }
 
   function playAgain() {
@@ -180,6 +184,8 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
       if (engine.background) {
         try {
           await startInBackground(engine.background);
+          // Closed while it was starting (e.g. during the notification permission prompt).
+          if (cancelled) engine.background.stop();
           return;
         } catch {
           // The playback service couldn't start: fall back to timing the lines from this screen.
@@ -205,6 +211,7 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
       cancelled = true;
       runRef.current++;
       backgroundRef.current?.stop();
+      backgroundRef.current = null;
       engineRef.current?.stop();
       keepScreenAwake(false);
       listener.then(l => l.remove());

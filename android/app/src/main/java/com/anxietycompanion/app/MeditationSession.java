@@ -35,6 +35,9 @@ final class MeditationSession {
     /** The one active session, if any. Main thread only. */
     static MeditationSession current;
     static Listener listener;
+    /** How the most recent session ended, so the app can catch up if it missed the event. */
+    static String lastStatus = "none";
+    static int lastIndex;
 
     final String title;
     private final Context app;
@@ -62,6 +65,8 @@ final class MeditationSession {
     private MediaPlayer player;
     private PowerManager.WakeLock wakeLock;
     private AudioFocusRequest focusRequest;
+    /** Paused by a phone call or another app's sound, to be resumed when it ends. */
+    private boolean pausedByFocus;
 
     private final BroadcastReceiver noisyReceiver = new BroadcastReceiver() {
         @Override
@@ -95,6 +100,7 @@ final class MeditationSession {
 
     void begin() {
         current = this;
+        lastStatus = "none";
         ContextCompat.registerReceiver(app, noisyReceiver,
             new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), ContextCompat.RECEIVER_NOT_EXPORTED);
         holdAwake(true);
@@ -154,8 +160,12 @@ final class MeditationSession {
                 return true;
             });
             mp.prepare();
-            requestFocus();
             player = mp;
+            if (!requestFocus()) {
+                // Something with priority is using the speaker (a phone call): wait for it.
+                pauseForFocus();
+                return;
+            }
             mp.start();
             emit(PLAYING);
         } catch (Throwable e) {
@@ -166,12 +176,22 @@ final class MeditationSession {
 
     private void onLineFinished(int line, int forToken) {
         if (ended || forToken != token) return;
-        releasePlayer();
         gapEndsAt = SystemClock.elapsedRealtime() + pauseMs[line];
         main.postDelayed(() -> startLine(line + 1, forToken), pauseMs[line]);
     }
 
     void pause() {
+        pausedByFocus = false;
+        pauseKeepingFocus();
+        abandonFocus();
+    }
+
+    private void pauseForFocus() {
+        pauseKeepingFocus();
+        pausedByFocus = true;
+    }
+
+    private void pauseKeepingFocus() {
         if (ended || PAUSED.equals(status)) return;
         token++;
         if (gapEndsAt > 0) {
@@ -183,13 +203,13 @@ final class MeditationSession {
             resumeDelay = 0;
         }
         releasePlayer();
-        abandonFocus();
         holdAwake(false);
         emit(PAUSED);
     }
 
     void resume() {
         if (ended || !PAUSED.equals(status)) return;
+        pausedByFocus = false;
         holdAwake(true);
         final int t = ++token;
         if (resumeDelay > 0 && resumeIndex > 0) {
@@ -223,10 +243,19 @@ final class MeditationSession {
     }
 
     void stop() {
-        end(STOPPED);
+        end(STOPPED, true);
+    }
+
+    /** Ends this session because another is about to start; the playback service stays up for it. */
+    void replace() {
+        end(STOPPED, false);
     }
 
     private void end(String finalStatus) {
+        end(finalStatus, true);
+    }
+
+    private void end(String finalStatus, boolean stopService) {
         if (ended) return;
         ended = true;
         token++;
@@ -235,8 +264,10 @@ final class MeditationSession {
         holdAwake(false);
         try { app.unregisterReceiver(noisyReceiver); } catch (Throwable ignored) {}
         if (current == this) current = null;
+        lastStatus = finalStatus;
+        lastIndex = index;
         emit(finalStatus);
-        MeditationService.stop(app);
+        if (stopService) MeditationService.stop();
     }
 
     private void emit(String next) {
@@ -266,20 +297,30 @@ final class MeditationSession {
         }
     }
 
-    private void requestFocus() {
-        if (Build.VERSION.SDK_INT < 26) return;
+    private boolean requestFocus() {
+        if (Build.VERSION.SDK_INT < 26) return true;
         AudioManager am = (AudioManager) app.getSystemService(Context.AUDIO_SERVICE);
         if (focusRequest == null) {
             focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                .setOnAudioFocusChangeListener(change -> {
-                    // A phone call or another player took over.
-                    if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                        main.post(this::pause);
-                    }
-                })
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener(change -> main.post(() -> onFocusChange(change)))
                 .build();
         }
-        am.requestAudioFocus(focusRequest);
+        return am.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+    }
+
+    private void onFocusChange(int change) {
+        if (ended) return;
+        if (change == AudioManager.AUDIOFOCUS_LOSS) {
+            pause(); // another player took over for good
+        } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+            if (!PAUSED.equals(status)) pauseForFocus(); // a phone call or an assistant prompt
+        } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+            if (player != null) player.setVolume(0.25f, 0.25f); // e.g. a navigation prompt
+        } else if (change == AudioManager.AUDIOFOCUS_GAIN) {
+            if (player != null) player.setVolume(1f, 1f);
+            if (pausedByFocus) resume();
+        }
     }
 
     private void abandonFocus() {
