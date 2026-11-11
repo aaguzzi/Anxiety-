@@ -224,7 +224,7 @@ export const starterMeditations: StarterMeditation[] = [
     ['Let your shoulders melt down, away from your ears.', 22],
     ['Let your arms grow heavy, all the way down to your fingertips.', 28],
     ['Soften your neck, and let your head rest fully on the pillow.', 22],
-    ['Let your jaw loosen, and let your tongue rest in your mouth.', 22],
+    ['Let your jaw soften, and let your tongue rest in your mouth.', 22],
     ['Let the small muscles around your eyes relax.', 22],
     ['Let your forehead become smooth.', 28],
     ['If thoughts about today or tomorrow drift in, you do not have to follow them.', 8],

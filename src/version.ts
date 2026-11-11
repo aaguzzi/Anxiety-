@@ -1,3 +1,3 @@
 // Keep in step with versionCode / versionName in android/app/build.gradle and public/version.json.
-export const APP_VERSION_CODE = 13;
-export const APP_VERSION_NAME = '1.12';
+export const APP_VERSION_CODE = 14;
+export const APP_VERSION_NAME = '1.13';
