@@ -15,6 +15,8 @@ const LENGTHS = [3, 5, 10];
 
 interface Props {
   hasKey: boolean;
+  speechSpeed: number;
+  pauseScale: number;
   meditations: Meditation[];
   busy: boolean;
   error: string | null;
@@ -24,8 +26,8 @@ interface Props {
   onOpenSettings: (target: 'voice' | 'key') => void;
 }
 
-function minutesOf(m: Meditation): number {
-  return Math.max(1, Math.round(estimateSeconds(m.segments) / 60));
+function minutesOf(m: Meditation, speed: number, pauseScale: number): number {
+  return Math.max(1, Math.round(estimateSeconds(m.segments, speed, pauseScale) / 60));
 }
 
 function PlayIcon() {
@@ -36,7 +38,7 @@ function PlayIcon() {
   );
 }
 
-export default function Meditate({ hasKey, meditations, busy, error, onCreate, onPlay, onDelete, onOpenSettings }: Props) {
+export default function Meditate({ hasKey, speechSpeed, pauseScale, meditations, busy, error, onCreate, onPlay, onDelete, onOpenSettings }: Props) {
   const [prompt, setPrompt] = useState('');
   const [minutes, setMinutes] = useState(5);
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -65,7 +67,7 @@ export default function Meditate({ hasKey, meditations, busy, error, onCreate, o
                 <PlayIcon />
                 <span className="saved-med-text">
                   <span className="exercise-card-title">{m.title}</span>
-                  <span className="settings-row-sub">{minutesOf(m)} min · {m.prompt}</span>
+                  <span className="settings-row-sub">{minutesOf(m, speechSpeed, pauseScale)} min · {m.prompt}</span>
                 </span>
               </button>
             </div>
@@ -141,7 +143,7 @@ export default function Meditate({ hasKey, meditations, busy, error, onCreate, o
                   <span className="saved-med-text">
                     <span className="exercise-card-title">{m.title}</span>
                     <span className="settings-row-sub">
-                      {minutesOf(m)} min ·{' '}
+                      {minutesOf(m, speechSpeed, pauseScale)} min ·{' '}
                       {new Date(m.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {m.prompt}
                     </span>
                   </span>

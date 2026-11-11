@@ -32,9 +32,9 @@ export function parseScript(raw: string): { title: string; segments: MeditationS
     const trimmed = line.replace(/[*_#`>]/g, '').trim();
     if (!trimmed) continue;
     const titleMatch = trimmed.match(/^TITLE:\s*(.+)$/i);
-    if (titleMatch) {
+    if (titleMatch && segments.length <= 2) {
       // Anything before the title is preamble ("Here is your script:"), not part of the meditation.
-      title = titleMatch[1].trim();
+      title = titleMatch[1].trim().slice(0, 60);
       segments.length = 0;
       continue;
     }
@@ -65,16 +65,26 @@ const SENTENCE_GAP = 0.7;
  */
 export function splitSentences(segments: MeditationSegment[]): MeditationSegment[] {
   return segments.flatMap(segment => {
-    const parts = segment.text.split(/(?<=[.!?…])\s+(?=["'“]?[A-Z])/).map(p => p.trim()).filter(Boolean);
+    const parts = segment.text
+      .split(/(?<!\b(?:Dr|Mr|Ms|Mrs|St|etc|e\.g|i\.e|vs)\.)(?<=[.!?…])\s+(?=["'“]?[A-Z])/)
+      .map(p => p.trim())
+      .filter(Boolean);
     return parts.map((text, i) => ({ text, pause: i === parts.length - 1 ? segment.pause : SENTENCE_GAP }));
   });
 }
 
-/** Rough playing time. `speed` 0.85 is the pace the scripts are written for. */
+const MIN_VOICE_SPEED = 0.75;
+
+/**
+ * Rough playing time at the user's settings. The natural voices don't speak slower than
+ * MIN_VOICE_SPEED; below that they lengthen the silences instead, and this mirrors that.
+ */
 export function estimateSeconds(segments: MeditationSegment[], speed = 0.85, pauseScale = 1): number {
-  const wordsPerSecond = WORDS_PER_SECOND * (speed / 0.85);
+  const spoken = Math.max(speed, MIN_VOICE_SPEED);
+  const wordsPerSecond = WORDS_PER_SECOND * (spoken / 0.85);
+  const silence = pauseScale * (spoken / speed);
   return Math.round(
-    segments.reduce((sum, s) => sum + s.text.split(/\s+/).length / wordsPerSecond + s.pause * pauseScale, 0),
+    segments.reduce((sum, s) => sum + s.text.split(/\s+/).length / wordsPerSecond + s.pause * silence, 0),
   );
 }
 
@@ -107,7 +117,7 @@ export async function generateMeditation(apiKey: string, prompt: string, minutes
       throw new ScriptError("Couldn't reach the service. Check your internet connection and try again.");
     }
     if (error instanceof Anthropic.BadRequestError) {
-      throw new ScriptError(`The service rejected the request: ${error.message.slice(0, 160)}`);
+      throw new ScriptError('The service rejected the request. Check that your API account is active and has credit, then try again.');
     }
     if (error instanceof Anthropic.APIError) {
       throw new ScriptError(`The service returned an error (${error.status ?? 'unknown'}). Try again.`);

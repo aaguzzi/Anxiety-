@@ -32,13 +32,14 @@ skipped and must be resolved before the feature ships to other people.
 - **espeak-ng** (pronunciation data used by the voice library) is GPL-3.0; confirm what that means for
   distributing it inside the app.
 
-## Known functional limits (from the red-team review)
-- **Playback stops when the screen locks or the app is in the background.** Lines are timed from the
-  app's web layer, which Android suspends. The screen is kept on while playing and playback pauses when
-  the app is backgrounded. Proper background playback needs a native foreground service and media session.
-- **The native voice plugin has only been compiled, not run on a device here.** If it fails at runtime the
-  player falls back to the phone voice.
-- **Progress bar** moves per line, so it stands still during long silences.
+## Known functional limits
+- **Background playback has not been run on a device by the developer tooling**, only compiled and
+  reviewed. Aggressive battery savers (some Samsung, Xiaomi, Huawei phones) may still stop it; the
+  remedy is exempting the app from battery optimisation.
+- **If the natural voice fails mid-session** the player falls back to the phone voice with in-app
+  timing, which stops when the screen turns off.
+- **Closing the player restarts the meditation from the first line** next time; there is no saved position.
+- **Progress bar** moves per sentence, so it stands still during long silences.
 
 ## App size
 - With three voice families bundled the test APK is about 400 MB. Google Play limits the base download,

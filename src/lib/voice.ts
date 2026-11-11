@@ -343,9 +343,8 @@ export async function chooseEngine(settings: VoiceSettings, saveBench: (b: Voice
   const choice = voiceOption(settings.voiceChoice);
   const installed = await installedModels();
 
-  if (choice.model) {
-    return installed[choice.model] ? neuralEngine(choice, speed, settings.voiceQuality) : systemEngine(speed);
-  }
+  // A saved choice from a build that bundled other voices falls through to Automatic.
+  if (choice.model && installed[choice.model]) return neuralEngine(choice, speed, settings.voiceQuality);
   if (choice.id === 'system' || !installed.piper) return systemEngine(speed);
 
   let bench = settings.voiceBench;

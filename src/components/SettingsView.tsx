@@ -142,7 +142,7 @@ export default function SettingsView({ settings, onChange, onDeleteAll, focus, u
               ) : (
                 <div className="delete-confirm">
                   <p className="settings-row-sub mb-4">
-                    This permanently erases your check-ins, notes, practice history and settings. It can't be undone.
+                    This permanently erases your check-ins, notes, practice history, saved meditations, API key and settings. It can't be undone.
                   </p>
                   <button className="btn btn-primary w-full danger-bg" onClick={onDeleteAll}>Yes, delete everything</button>
                   <button className="btn btn-ghost w-full mt-4" onClick={() => setConfirmDelete(false)}>Cancel</button>

@@ -28,7 +28,9 @@ export default function MeditationSettings({ settings, onChange }: Props) {
     };
   }, []);
 
-  const selected = voiceOption(settings.voiceChoice).id;
+  const chosen = voiceOption(settings.voiceChoice);
+  // A voice this build doesn't include behaves as Automatic, so show it that way.
+  const selected = installed && chosen.model && !installed[chosen.model] ? 'auto' : chosen.id;
   const voices = VOICES.filter(v => !v.model || installed?.[v.model]);
 
   async function listen(voiceId: string) {

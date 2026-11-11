@@ -225,7 +225,9 @@ final class MeditationSession {
     void skip(int by) {
         if (ended) return;
         boolean paused = PAUSED.equals(status);
-        int target = Math.max(0, (paused ? resumeIndex : index) + by);
+        // Paused inside the silence after a line: that line is still the current one.
+        int base = paused ? (resumeDelay > 0 ? resumeIndex - 1 : resumeIndex) : index;
+        int target = Math.max(0, base + by);
         final int t = ++token;
         releasePlayer();
         if (target >= ids.length) {

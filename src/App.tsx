@@ -167,6 +167,8 @@ export default function App() {
         {tab === 'meditate' && (
           <Meditate
             hasKey={settings.anthropicKey.trim().length > 0}
+            speechSpeed={settings.speechSpeed}
+            pauseScale={settings.pauseScale}
             meditations={meditations}
             busy={writing.busy}
             error={writing.error}

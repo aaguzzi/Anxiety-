@@ -154,7 +154,11 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
 
   function skip(by: number) {
     if (backgroundRef.current) return backgroundRef.current.skip(by);
-    const current = statusRef.current === 'paused' ? resumeRef.current.index : posRef.current.index;
+    // Paused inside the silence after a line: that line is still the current one.
+    const paused = resumeRef.current;
+    const current = statusRef.current === 'paused'
+      ? (paused.delayMs > 0 ? paused.index - 1 : paused.index)
+      : posRef.current.index;
     const target = Math.max(0, current + by);
     const token = ++runRef.current;
     if (target >= segments.length) {
