@@ -57,6 +57,19 @@ export function parseScript(raw: string): { title: string; segments: MeditationS
   return { title, segments };
 }
 
+const SENTENCE_GAP = 0.7;
+
+/**
+ * One spoken unit per sentence. The voices garble the join when a line holds a very short sentence
+ * followed by another ("Welcome. Find a comfortable position…"), so each sentence is spoken alone.
+ */
+export function splitSentences(segments: MeditationSegment[]): MeditationSegment[] {
+  return segments.flatMap(segment => {
+    const parts = segment.text.split(/(?<=[.!?…])\s+(?=["'“]?[A-Z])/).map(p => p.trim()).filter(Boolean);
+    return parts.map((text, i) => ({ text, pause: i === parts.length - 1 ? segment.pause : SENTENCE_GAP }));
+  });
+}
+
 /** Rough playing time. `speed` 0.85 is the pace the scripts are written for. */
 export function estimateSeconds(segments: MeditationSegment[], speed = 0.85, pauseScale = 1): number {
   const wordsPerSecond = WORDS_PER_SECOND * (speed / 0.85);

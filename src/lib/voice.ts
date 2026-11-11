@@ -10,7 +10,7 @@ export type InstalledModels = Record<NeuralModel, boolean>;
 interface NeuralVoicePlugin {
   info(): Promise<InstalledModels & { cores: number; ramMb: number }>;
   benchmark(): Promise<VoiceBench>;
-  prepare(options: { id: string; text: string; speed: number; model: NeuralModel; sid: number }): Promise<{ cached: boolean }>;
+  prepare(options: { id: string; text: string; speed: number; model: NeuralModel; sid: number; steps: number }): Promise<{ cached: boolean }>;
   play(options: { id: string }): Promise<{ stopped: boolean }>;
   stop(options?: { cancelQueued: boolean }): Promise<void>;
   clearCache(options?: { prefix: string }): Promise<void>;
@@ -95,6 +95,8 @@ const MIN_RAM_MB = 2500;
 export interface VoiceEngine {
   /** Which voice is actually speaking (never "auto"). */
   voice: VoiceOption;
+  /** Multiply silences by this: voices that can't speak as slowly as asked make it up in the gaps. */
+  pauseStretch: number;
   /** True when lines take noticeably long to generate, so the player should buffer more first. */
   slowToPrepare: boolean;
   /** Queue every line for generation up front (natural voices only). */
@@ -109,19 +111,27 @@ export interface VoiceEngine {
   stop(): Promise<void>;
 }
 
-function neuralEngine(voice: VoiceOption, speed: number): VoiceEngine {
+// Refinement passes for the studio voices: more passes sound cleaner and take longer.
+const STEPS = { best: 16, fast: 5 };
+export const MIN_STUDIO_SPEED = 0.75;
+
+function neuralEngine(voice: VoiceOption, speed: number, quality: 'best' | 'fast'): VoiceEngine {
   const model = voice.model!;
   const sid = voice.sid ?? 0;
+  const steps = model === 'supertonic' ? STEPS[quality] : 0;
+  // The studio voices start repeating words when asked to speak slower than this.
+  const genSpeed = model === 'supertonic' ? Math.max(speed, MIN_STUDIO_SPEED) : speed;
   const ready = new Map<string, Promise<unknown>>();
   // Generated speech is cached per line, voice and speed, so changing either never replays a stale file.
-  const fileId = (key: string) => `${key}-${voice.id}-${Math.round(speed * 100)}-p${PRONUNCIATION_VERSION}`;
+  const fileId = (key: string) => `${key}-${voice.id}-${Math.round(genSpeed * 100)}-p${PRONUNCIATION_VERSION}-s${steps}`;
   const prepare = (key: string, text: string) =>
-    NeuralVoice.prepare({ id: fileId(key), text: spokenText(text, model !== 'supertonic'), speed, model, sid });
+    NeuralVoice.prepare({ id: fileId(key), text: spokenText(text, model !== 'supertonic'), speed: genSpeed, model, sid, steps });
   // Bumped on halt/stop so a line that was still being generated doesn't start playing afterwards.
   let generation = 0;
   return {
     voice,
-    slowToPrepare: model === 'kokoro',
+    pauseStretch: genSpeed / speed,
+    slowToPrepare: model === 'kokoro' || steps > STEPS.fast,
     preload(lines) {
       for (const { key, text } of lines) {
         const p = prepare(key, text);
@@ -173,6 +183,7 @@ function systemEngine(speed: number): VoiceEngine {
   let finish: (() => void) | null = null;
   return {
     voice: voiceOption('system'),
+    pauseStretch: 1,
     slowToPrepare: false,
     preload() {},
     async whenReady() {},
@@ -236,16 +247,16 @@ export function benchVerdict(bench: VoiceBench | null): BenchVerdict {
 }
 
 // The studio voices take roughly this many times longer to generate than the benchmark voice.
-const STUDIO_COST = 2.5;
+const STUDIO_COST = { fast: 2.5, best: 6.5 };
 
 /** Which voice "Automatic" resolves to on this device. */
 export function automaticVoice(bench: VoiceBench | null, installed: InstalledModels): VoiceOption {
   if (benchVerdict(bench) !== 'ok') return voiceOption('system');
-  if (installed.supertonic && bench!.rtf * STUDIO_COST <= MAX_RTF) return voiceOption('ruth');
+  if (installed.supertonic && bench!.rtf * STUDIO_COST.fast <= MAX_RTF) return voiceOption('ruth');
   return voiceOption('jenny');
 }
 
-type VoiceSettings = Pick<Settings, 'voiceChoice' | 'voiceBench' | 'speechSpeed'>;
+type VoiceSettings = Pick<Settings, 'voiceChoice' | 'voiceBench' | 'speechSpeed' | 'voiceQuality'>;
 
 /**
  * Builds the engine for the chosen voice. "Automatic" uses a one-off speed test to pick the best
@@ -258,7 +269,7 @@ export async function chooseEngine(settings: VoiceSettings, saveBench: (b: Voice
   const installed = await installedModels();
 
   if (choice.model) {
-    return installed[choice.model] ? neuralEngine(choice, speed) : systemEngine(speed);
+    return installed[choice.model] ? neuralEngine(choice, speed, settings.voiceQuality) : systemEngine(speed);
   }
   if (choice.id === 'system' || !installed.piper) return systemEngine(speed);
 
@@ -268,7 +279,10 @@ export async function chooseEngine(settings: VoiceSettings, saveBench: (b: Voice
     if (bench) saveBench(bench);
   }
   const picked = automaticVoice(bench, installed);
-  return picked.model ? neuralEngine(picked, speed) : systemEngine(speed);
+  if (!picked.model) return systemEngine(speed);
+  // Automatic never asks for more than the device can keep up with.
+  const canDoBest = picked.model !== 'supertonic' || bench!.rtf * STUDIO_COST.best <= MAX_RTF;
+  return neuralEngine(picked, speed, canDoBest ? settings.voiceQuality : 'fast');
 }
 
 export function fallbackEngine(speed: number): VoiceEngine {

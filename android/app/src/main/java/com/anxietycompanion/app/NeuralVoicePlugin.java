@@ -16,6 +16,7 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.k2fsa.sherpa.onnx.GeneratedAudio;
+import com.k2fsa.sherpa.onnx.GenerationConfig;
 import com.k2fsa.sherpa.onnx.OfflineTts;
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig;
@@ -183,6 +184,7 @@ public class NeuralVoicePlugin extends Plugin {
         float speed = call.getFloat("speed", 0.85f);
         String model = call.getString("model", "piper");
         int sid = call.getInt("sid", 0);
+        int steps = call.getInt("steps", 0);
         if (id == null || text == null) {
             call.reject("id and text are required");
             return;
@@ -202,7 +204,17 @@ public class NeuralVoicePlugin extends Plugin {
                     call.resolve(ret);
                     return;
                 }
-                GeneratedAudio audio = engine(model).generate(text, sid, speed);
+                OfflineTts voice = engine(model);
+                GeneratedAudio audio;
+                if (steps > 0) {
+                    GenerationConfig config = new GenerationConfig();
+                    config.setSid(sid);
+                    config.setSpeed(speed);
+                    config.setNumSteps(steps);
+                    audio = voice.generateWithConfig(text, config);
+                } else {
+                    audio = voice.generate(text, sid, speed);
+                }
                 File tmp = new File(out.getPath() + ".part");
                 if (audio.getSamples().length == 0 || !audio.save(tmp.getAbsolutePath()) || !tmp.renameTo(out)) {
                     tmp.delete();

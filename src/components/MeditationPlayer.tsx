@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { Meditation, Settings, VoiceBench } from '../types';
 import { chooseEngine, fallbackEngine, keepScreenAwake, VoiceEngine } from '../lib/voice';
-import { estimateSeconds } from '../lib/meditationScript';
+import { estimateSeconds, splitSentences } from '../lib/meditationScript';
 
 interface Props {
   meditation: Meditation;
@@ -15,7 +15,7 @@ interface Props {
 type Status = 'preparing' | 'playing' | 'paused' | 'done' | 'error';
 
 export default function MeditationPlayer({ meditation, settings, onSaveBench, onClose, onComplete }: Props) {
-  const { segments } = meditation;
+  const segments = useMemo(() => splitSentences(meditation.segments), [meditation.segments]);
   const [status, setStatus] = useState<Status>('preparing');
   const [index, setIndex] = useState(0);
   const [voiceName, setVoiceName] = useState<string | null>(null);
@@ -64,7 +64,7 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
       posRef.current = { index: i, gapEndsAt: 0 };
       setIndex(i);
       const text = segments[i].text;
-      const pause = segments[i].pause * pauseScale;
+      const pause = segments[i].pause * pauseScale * engineRef.current!.pauseStretch;
       try {
         await engineRef.current!.speak(lineId(i), text);
       } catch {

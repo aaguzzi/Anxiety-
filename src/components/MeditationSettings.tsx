@@ -108,6 +108,25 @@ export default function MeditationSettings({ settings, onChange }: Props) {
           <p className="settings-row-sub mt-2">More natural voices are available in the Android app.</p>
         )}
 
+        {installed?.supertonic && (
+          <>
+            <div className="settings-row-title mt-6">Studio voice quality</div>
+            <div className="chip-row">
+              {([['best', 'Best'], ['fast', 'Faster to prepare']] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  className={`chip ${settings.voiceQuality === value ? 'selected' : ''}`}
+                  aria-pressed={settings.voiceQuality === value}
+                  onClick={() => onChange(prev => ({ ...prev, voiceQuality: value }))}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="settings-row-sub mt-2">Best takes about three times longer to prepare each new meditation.</p>
+          </>
+        )}
+
         <div className="settings-row-title mt-6">Speaking speed</div>
         <div className="chip-row">
           {SPEEDS.map(s => (
@@ -121,6 +140,12 @@ export default function MeditationSettings({ settings, onChange }: Props) {
             </button>
           ))}
         </div>
+
+        {installed?.supertonic && settings.speechSpeed < 0.75 && (
+          <p className="settings-row-sub mt-2">
+            Studio voices stay clear by not speaking slower than "Slow". At this setting they leave longer silences instead.
+          </p>
+        )}
 
         <div className="settings-row-title mt-6">Silences between lines</div>
         <div className="chip-row">

@@ -62,6 +62,8 @@ export interface Settings {
   speechSpeed: number;
   /** Multiplier applied to every silence in a meditation. */
   pauseScale: number;
+  /** 'best' spends about three times longer generating each line of a studio voice. */
+  voiceQuality: 'best' | 'fast';
 }
 
 export interface VoiceBench {

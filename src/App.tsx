@@ -32,8 +32,9 @@ const defaultSettings: Settings = {
   anthropicKey: '',
   voiceChoice: 'auto',
   voiceBench: null,
-  speechSpeed: 0.65,
+  speechSpeed: 0.75,
   pauseScale: 1,
+  voiceQuality: 'best',
 };
 
 type Overlay = 'none' | 'sos' | 'settings' | 'history';
