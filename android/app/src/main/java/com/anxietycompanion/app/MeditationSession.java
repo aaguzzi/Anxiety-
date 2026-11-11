@@ -44,17 +44,18 @@ final class MeditationSession {
     private final String[] ids;
     private final String[] texts;
     private final long[] pauseMs;
-    private final String model;
-    private final int sid;
-    private final int steps;
-    private final float speed;
+    private final VoiceCore.Spec voice;
     private final int lead;
+    private final long tailMs;
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final boolean[] ready;
     private String status = PREPARING;
     private int index;
-    private boolean started;
+    /** One line at a time is being generated; main thread only. */
+    private boolean generating;
+    /** Waiting for a few lines to be ready, at the start or after jumping somewhere not yet generated. */
+    private boolean buffering = true;
     private volatile boolean ended;
     /** Bumped whenever scheduled playback steps must no longer run. */
     private int token;
@@ -76,18 +77,17 @@ final class MeditationSession {
     };
 
     MeditationSession(Context context, String title, String[] ids, String[] texts, long[] pauseMs,
-                      String model, int sid, float speed, int steps, int lead) {
+                      VoiceCore.Spec voice, int lead, int startIndex) {
         this.app = context.getApplicationContext();
         this.title = title;
         this.ids = ids;
         this.texts = texts;
         this.pauseMs = pauseMs;
-        this.model = model;
-        this.sid = sid;
-        this.speed = speed;
-        this.steps = steps;
+        this.voice = voice;
+        this.tailMs = voice.tailMs();
         this.lead = Math.max(1, Math.min(lead, ids.length));
         this.ready = new boolean[ids.length];
+        this.index = Math.max(0, Math.min(startIndex, ids.length - 1));
     }
 
     String status() {
@@ -104,32 +104,49 @@ final class MeditationSession {
         ContextCompat.registerReceiver(app, noisyReceiver,
             new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), ContextCompat.RECEIVER_NOT_EXPORTED);
         holdAwake(true);
+        Ambience.session(true, 2.5f);
         emit(PREPARING);
-        for (int i = 0; i < ids.length; i++) {
-            final int line = i;
-            VoiceCore.WORKER.execute(() -> {
-                if (ended) return;
-                try {
-                    VoiceCore.synthesize(app, ids[line], texts[line], speed, model, sid, steps);
-                    main.post(() -> onReady(line));
-                } catch (Throwable e) {
-                    main.post(() -> end(ERROR));
-                }
-            });
-        }
+        VoiceCore.WORKER.execute(() -> VoiceCore.pruneProcessed(app, voice));
+        generateNext();
+    }
+
+    /**
+     * Generates lines one at a time, always the next one the listener will reach: from the
+     * current line to the end, then anything skipped over. Jumping around re-aims it.
+     */
+    private void generateNext() {
+        if (ended || generating) return;
+        int next = -1;
+        for (int i = index; i < ids.length && next < 0; i++) if (!ready[i]) next = i;
+        for (int i = 0; i < index && next < 0; i++) if (!ready[i]) next = i;
+        if (next < 0) return;
+        final int line = next;
+        generating = true;
+        VoiceCore.WORKER.execute(() -> {
+            if (ended) return;
+            try {
+                VoiceCore.synthesize(app, ids[line], texts[line], voice);
+                main.post(() -> onReady(line));
+            } catch (Throwable e) {
+                main.post(() -> end(ERROR));
+            }
+        });
     }
 
     private void onReady(int line) {
         if (ended) return;
+        generating = false;
         ready[line] = true;
         if (PREPARING.equals(status)) startLine(index, token);
+        generateNext();
     }
 
     private boolean canStart(int line) {
         if (!ready[line]) return false;
-        if (started) return true;
-        // Wait for a few lines before the very first one, so the opening isn't full of stalls.
-        for (int i = 0; i < lead; i++) if (!ready[i]) return false;
+        if (!buffering) return true;
+        // Have a few lines in hand before speaking, so what follows isn't full of stalls.
+        int end = Math.min(ids.length, line + lead);
+        for (int i = line; i < end; i++) if (!ready[i]) return false;
         return true;
     }
 
@@ -142,10 +159,11 @@ final class MeditationSession {
         index = line;
         gapEndsAt = 0;
         if (!canStart(line)) {
-            emit(PREPARING);
+            buffering = true;
+            if (!PREPARING.equals(status)) emit(PREPARING);
             return;
         }
-        started = true;
+        buffering = false;
         releasePlayer();
         MediaPlayer mp = new MediaPlayer();
         try {
@@ -153,7 +171,7 @@ final class MeditationSession {
                 .setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                 .build());
-            mp.setDataSource(VoiceCore.segmentFile(app, ids[line]).getAbsolutePath());
+            mp.setDataSource(VoiceCore.playFile(app, ids[line], voice).getAbsolutePath());
             mp.setOnCompletionListener(p -> onLineFinished(line, forToken));
             mp.setOnErrorListener((p, what, extra) -> {
                 if (forToken == token) end(ERROR);
@@ -176,8 +194,10 @@ final class MeditationSession {
 
     private void onLineFinished(int line, int forToken) {
         if (ended || forToken != token) return;
-        gapEndsAt = SystemClock.elapsedRealtime() + pauseMs[line];
-        main.postDelayed(() -> startLine(line + 1, forToken), pauseMs[line]);
+        // The room sound has already filled the first part of the silence.
+        long gap = Math.max(150, pauseMs[line] - tailMs);
+        gapEndsAt = SystemClock.elapsedRealtime() + gap;
+        main.postDelayed(() -> startLine(line + 1, forToken), gap);
     }
 
     void pause() {
@@ -204,6 +224,7 @@ final class MeditationSession {
         }
         releasePlayer();
         holdAwake(false);
+        Ambience.session(false, 0.8f);
         emit(PAUSED);
     }
 
@@ -211,6 +232,7 @@ final class MeditationSession {
         if (ended || !PAUSED.equals(status)) return;
         pausedByFocus = false;
         holdAwake(true);
+        Ambience.session(true, 1.2f);
         final int t = ++token;
         if (resumeDelay > 0 && resumeIndex > 0) {
             index = resumeIndex - 1;
@@ -224,17 +246,22 @@ final class MeditationSession {
 
     void skip(int by) {
         if (ended) return;
-        boolean paused = PAUSED.equals(status);
         // Paused inside the silence after a line: that line is still the current one.
-        int base = paused ? (resumeDelay > 0 ? resumeIndex - 1 : resumeIndex) : index;
-        int target = Math.max(0, base + by);
+        int base = PAUSED.equals(status) ? (resumeDelay > 0 ? resumeIndex - 1 : resumeIndex) : index;
+        seek(base + by);
+    }
+
+    /** Jumps to a line; past the last one ends the meditation. Stays paused if paused. */
+    void seek(int line) {
+        if (ended) return;
+        int target = Math.max(0, line);
         final int t = ++token;
         releasePlayer();
         if (target >= ids.length) {
             end(DONE);
             return;
         }
-        if (paused) {
+        if (PAUSED.equals(status)) {
             resumeIndex = target;
             resumeDelay = 0;
             index = target;
@@ -242,6 +269,7 @@ final class MeditationSession {
         } else {
             startLine(target, t);
         }
+        generateNext();
     }
 
     void stop() {
@@ -263,13 +291,26 @@ final class MeditationSession {
         token++;
         releasePlayer();
         abandonFocus();
-        holdAwake(false);
         try { app.unregisterReceiver(noisyReceiver); } catch (Throwable ignored) {}
         if (current == this) current = null;
         lastStatus = finalStatus;
         lastIndex = index;
         emit(finalStatus);
-        if (stopService) MeditationService.stop();
+        if (!stopService) {
+            // Another session is taking over: it keeps the service and the background sounds.
+            holdAwake(false);
+        } else if (DONE.equals(finalStatus) && Ambience.audible()) {
+            // Let the background sounds fade away slowly, and stay awake until they have.
+            Ambience.session(false, 5f);
+            main.postDelayed(() -> {
+                holdAwake(false);
+                if (current == null) MeditationService.stop();
+            }, 5500);
+        } else {
+            Ambience.session(false, 0.6f);
+            holdAwake(false);
+            MeditationService.stop();
+        }
     }
 
     private void emit(String next) {
@@ -319,8 +360,10 @@ final class MeditationSession {
             if (!PAUSED.equals(status)) pauseForFocus(); // a phone call or an assistant prompt
         } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
             if (player != null) player.setVolume(0.25f, 0.25f); // e.g. a navigation prompt
+            Ambience.duck(true);
         } else if (change == AudioManager.AUDIOFOCUS_GAIN) {
             if (player != null) player.setVolume(1f, 1f);
+            Ambience.duck(false);
             if (pausedByFocus) resume();
         }
     }

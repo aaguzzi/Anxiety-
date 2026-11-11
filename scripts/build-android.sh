@@ -17,6 +17,7 @@ if [ ! -f "$KEY" ]; then
 fi
 
 python3 scripts/fetch-voice.py
+python3 scripts/make-ambience.py
 npm run build
 npx cap sync android
 (cd android && ./gradlew assembleDebug --no-daemon -q)

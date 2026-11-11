@@ -38,9 +38,20 @@ skipped and must be resolved before the feature ships to other people.
   remedy is exempting the app from battery optimisation.
 - **If the natural voice fails mid-session** the player falls back to the phone voice with in-app
   timing, which stops when the screen turns off.
-- **Closing the player restarts the meditation from the first line** next time; there is no saved position.
-- **Progress bar** moves per sentence, so it stands still during long silences.
+- **Background sounds are generated, not recorded.** `scripts/make-ambience.py` builds the nine loops
+  from shaped noise and tones. They have been checked by measurement (loudness, seamless looping) but
+  not by ear by the developer tooling; real, clearly licensed recordings of rain, waves and a stream
+  would sound more natural and are worth sourcing before release.
+- **Background sounds and the softer voice processing are Android-only.** The web build shows the
+  controls but plays neither.
+- **The sound mixer, seeking, and resuming part-way have not been run on a device**, only compiled,
+  reviewed and (for the audio processing itself) run on a desktop.
+- **Voice softening is set per voice from measurements** (treble relative to Ruth), not by listening.
+- **The clock in the player is an estimate** from word counts, so it can drift from the real time.
+- **The custom-meditation prompt was rewritten** (settling-in section, word and silence budget, setup
+  options) and has only been checked for format, not by generating and listening to real scripts.
 
 ## App size
-- With three voice families bundled the test APK is about 400 MB. Google Play limits the base download,
-  so for release the voice models need to move to Play Asset Delivery or an in-app download.
+- The test APK is about 365 MB: the studio voice now uses the full-precision vocoder (101 MB, for a
+  cleaner sound) and the background sounds add 35 MB. Google Play limits the base download, so for
+  release the voice models need to move to Play Asset Delivery or an in-app download.

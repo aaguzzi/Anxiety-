@@ -2,13 +2,15 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { Tab, Exercise, CheckinEntry, PracticeHistory, Settings, Meditation } from './types';
+import { Tab, Exercise, CheckinEntry, PracticeHistory, Settings, Meditation, MeditationSetup } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { localDateKey } from './lib/dates';
 import { cancelReminder } from './lib/reminders';
-import { clearVoiceCache } from './lib/voice';
+import { clearVoiceCache, dropOutdatedVoiceCache, InstalledModels, installedModels, voiceOption } from './lib/voice';
+import { activeSounds, applySounds } from './lib/sounds';
+import { clearPosition } from './lib/positions';
 import { AppUpdate, checkForUpdate } from './lib/update';
-import { generateMeditation, ScriptError } from './lib/meditationScript';
+import { DEFAULT_SETUP, generateMeditation, ScriptError } from './lib/meditationScript';
 import Navigation from './components/Navigation';
 import Home from './components/Home';
 import CheckIn from './components/CheckIn';
@@ -20,8 +22,11 @@ import HistoryView from './components/HistoryView';
 import WelcomeSheet from './components/WelcomeSheet';
 import Meditate from './components/Meditate';
 import MeditationPlayer from './components/MeditationPlayer';
+import VoicePanel from './components/VoicePanel';
 
-const STORAGE_KEYS = ['anxiety-companion', 'ac-checkins', 'ac-history', 'ac-settings', 'ac-meditations'];
+const STORAGE_KEYS = [
+  'anxiety-companion', 'ac-checkins', 'ac-history', 'ac-settings', 'ac-meditations', 'ac-med-positions', 'ac-voice-engine',
+];
 
 const defaultSettings: Settings = {
   reminderEnabled: false,
@@ -35,9 +40,13 @@ const defaultSettings: Settings = {
   speechSpeed: 0.75,
   pauseScale: 1,
   voiceQuality: 'best',
+  voiceSoftness: 0.3,
+  voiceSpace: 0.15,
+  sounds: {},
+  meditationSetup: DEFAULT_SETUP,
 };
 
-type Overlay = 'none' | 'sos' | 'settings' | 'history';
+type Overlay = 'none' | 'sos' | 'settings' | 'history' | 'voice';
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('home');
@@ -49,13 +58,31 @@ export default function App() {
   const [meditations, setMeditations] = useLocalStorage<Meditation[]>('ac-meditations', []);
   const [activeMeditation, setActiveMeditation] = useState<Meditation | null>(null);
   const [writing, setWriting] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
-  const [settingsFocus, setSettingsFocus] = useState<'voice' | 'key' | null>(null);
+  const [focusKey, setFocusKey] = useState(false);
+  // Voice & sounds can be opened from Settings; closing it goes back there.
+  const [voiceFromSettings, setVoiceFromSettings] = useState(false);
   const screenRef = useRef<HTMLDivElement>(null);
   const [update, setUpdate] = useState<AppUpdate | null>(null);
 
+  const [installed, setInstalled] = useState<InstalledModels | null>(null);
+
   useEffect(() => {
     checkForUpdate().then(setUpdate);
+    dropOutdatedVoiceCache();
+    installedModels().then(setInstalled);
   }, []);
+
+  // The phone mixes the background sounds itself; keep it told which ones are on.
+  useEffect(() => {
+    applySounds(settings.sounds);
+  }, [settings.sounds]);
+
+  const closeVoice = useCallback(() => {
+    setOverlay(voiceFromSettings ? 'settings' : 'none');
+    setVoiceFromSettings(false);
+  }, [voiceFromSettings]);
+  const closeVoiceRef = useRef(closeVoice);
+  closeVoiceRef.current = closeVoice;
 
   const navRef = useRef({ tab, activeExercise, overlay, activeMeditation });
   navRef.current = { tab, activeExercise, overlay, activeMeditation };
@@ -63,7 +90,8 @@ export default function App() {
   useEffect(() => {
     const listener = CapApp.addListener('backButton', () => {
       const { tab: t, activeExercise: ex, overlay: o, activeMeditation: med } = navRef.current;
-      if (o !== 'none') setOverlay('none');
+      if (o === 'voice') closeVoiceRef.current();
+      else if (o !== 'none') setOverlay('none');
       else if (med) setActiveMeditation(null);
       else if (ex) setActiveExercise(null);
       else if (t !== 'home') setTab('home');
@@ -88,11 +116,11 @@ export default function App() {
   }, [tab]);
 
   // Lives here, not in the Meditate tab, so leaving the tab can't lose (or double-charge for) a script in flight.
-  const createMeditation = useCallback(async (prompt: string, minutes: number): Promise<boolean> => {
+  const createMeditation = useCallback(async (prompt: string, setup: MeditationSetup): Promise<boolean> => {
     if (writing.busy) return false;
     setWriting({ busy: true, error: null });
     try {
-      const meditation = await generateMeditation(settings.anthropicKey.trim(), prompt, minutes);
+      const meditation = await generateMeditation(settings.anthropicKey.trim(), prompt, setup);
       setMeditations(prev => [...prev, meditation]);
       setWriting({ busy: false, error: null });
       const nav = navRef.current;
@@ -105,6 +133,12 @@ export default function App() {
       return false;
     }
   }, [writing.busy, settings.anthropicKey, setMeditations]);
+
+  const sounds = activeSounds(settings.sounds);
+  const chosenVoice = voiceOption(settings.voiceChoice);
+  // A voice this build doesn't include behaves as Automatic.
+  const voiceLabel = chosenVoice.model && installed && !installed[chosenVoice.model] ? 'Automatic' : chosenVoice.label;
+  const voiceSummary = `${voiceLabel} · ${sounds.length ? sounds.join(', ') : 'no background sounds'}`;
 
   const today = localDateKey();
   const completedToday = history[today] ?? [];
@@ -169,13 +203,21 @@ export default function App() {
             hasKey={settings.anthropicKey.trim().length > 0}
             speechSpeed={settings.speechSpeed}
             pauseScale={settings.pauseScale}
+            voiceSummary={voiceSummary}
             meditations={meditations}
+            setup={{ ...DEFAULT_SETUP, ...settings.meditationSetup }}
             busy={writing.busy}
             error={writing.error}
+            onSetup={setup => setSettings(prev => ({ ...prev, meditationSetup: setup }))}
             onCreate={createMeditation}
             onPlay={setActiveMeditation}
-            onDelete={id => { clearVoiceCache(`${id}-`); setMeditations(prev => prev.filter(m => m.id !== id)); }}
-            onOpenSettings={target => { setSettingsFocus(target); setOverlay('settings'); }}
+            onDelete={id => {
+              clearVoiceCache(`${id}-`);
+              clearPosition(id);
+              setMeditations(prev => prev.filter(m => m.id !== id));
+            }}
+            onOpenVoice={() => setOverlay('voice')}
+            onOpenKey={() => { setFocusKey(true); setOverlay('settings'); }}
           />
         )}
         {tab === 'toolbox' && (
@@ -198,6 +240,9 @@ export default function App() {
           key={activeMeditation.id}
           meditation={activeMeditation}
           settings={settings}
+          voicePanelOpen={overlay === 'voice'}
+          onOpenVoice={() => setOverlay('voice')}
+          onChangeSettings={setSettings}
           onSaveBench={bench => setSettings(prev => ({ ...prev, voiceBench: bench }))}
           onClose={() => setActiveMeditation(null)}
           onComplete={() => { recordPractice('meditation'); setActiveMeditation(null); }}
@@ -226,9 +271,18 @@ export default function App() {
           settings={settings}
           onChange={setSettings}
           onDeleteAll={deleteAllData}
-          focus={settingsFocus}
+          focusKey={focusKey}
           update={update}
-          onClose={() => { setSettingsFocus(null); setOverlay('none'); }}
+          onOpenVoice={() => { setFocusKey(false); setVoiceFromSettings(true); setOverlay('voice'); }}
+          onClose={() => { setFocusKey(false); setOverlay('none'); }}
+        />
+      )}
+      {overlay === 'voice' && (
+        <VoicePanel
+          settings={settings}
+          onChange={setSettings}
+          duringMeditation={!!activeMeditation}
+          onClose={closeVoice}
         />
       )}
       {overlay === 'history' && (

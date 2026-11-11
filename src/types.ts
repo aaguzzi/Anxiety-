@@ -64,6 +64,32 @@ export interface Settings {
   pauseScale: number;
   /** 'best' spends about three times longer generating each line of a studio voice. */
   voiceQuality: 'best' | 'fast';
+  /** 0..1: how much the voice's tone is darkened and warmed. */
+  voiceSoftness: number;
+  /** 0..1: how much room sound is added around the voice. */
+  voiceSpace: number;
+  /** Background sound layers by id (see lib/sounds.ts). */
+  sounds: Record<string, SoundLayer>;
+  /** The choices last used under "Make your own". */
+  meditationSetup: MeditationSetup;
+}
+
+export interface SoundLayer {
+  on: boolean;
+  /** 0..1 */
+  volume: number;
+}
+
+/** What a custom meditation is asked to be like. */
+export interface MeditationSetup {
+  minutes: number;
+  /** An id from PRACTICES in lib/meditationScript.ts. */
+  practice: string;
+  balance: 'guided' | 'balanced' | 'quiet';
+  position: 'any' | 'sitting' | 'lying';
+  ending: 'day' | 'sleep' | 'action';
+  /** Anything to include or leave out, in the listener's words. */
+  notes: string;
 }
 
 export interface VoiceBench {

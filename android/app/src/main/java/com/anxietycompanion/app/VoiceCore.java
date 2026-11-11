@@ -30,6 +30,37 @@ final class VoiceCore {
     static final String PIPER_ASSETS = "voice";
     static final String KOKORO_ASSETS = "voice-kokoro";
     static final String SUPERTONIC_ASSETS = "voice-supertonic";
+    static final String SUPERTONIC_VOCODER = "vocoder.onnx";
+
+    /** Everything that decides how a line sounds. */
+    static final class Spec {
+        final String model;
+        final int sid;
+        final float speed;
+        /** Refinement passes for the studio voices; 0 uses the model's default. */
+        final int steps;
+        /** 0..1, see VoiceFx. */
+        final float softness;
+        final float space;
+
+        Spec(String model, int sid, float speed, int steps, float softness, float space) {
+            this.model = model;
+            this.sid = sid;
+            this.speed = speed;
+            this.steps = steps;
+            this.softness = Math.max(0f, Math.min(1f, softness));
+            this.space = Math.max(0f, Math.min(1f, space));
+        }
+
+        boolean processed() {
+            return softness > 0f || space > 0f;
+        }
+
+        /** Extra length the room sound adds to the end of each line. */
+        long tailMs() {
+            return space > 0f ? Math.round(VoiceFx.tailSeconds(space) * 1000) : 0;
+        }
+    }
 
     /** All speech generation runs here, one line at a time, because the engine is not thread-safe. */
     static final ExecutorService WORKER = Executors.newSingleThreadExecutor();
@@ -65,8 +96,39 @@ final class VoiceCore {
         return dir;
     }
 
+    private static String safe(String id) {
+        return id.replaceAll("[^A-Za-z0-9_-]", "");
+    }
+
+    /** The line as the voice model produced it. */
     static File segmentFile(Context context, String id) {
-        return new File(voiceCacheDir(context), "seg-" + id.replaceAll("[^A-Za-z0-9_-]", "") + ".wav");
+        return new File(voiceCacheDir(context), "seg-" + safe(id) + ".wav");
+    }
+
+    /**
+     * The file to play for a line: the model's output, or a softened copy of it. The copies are
+     * cheap to remake, so changing softness never means generating the speech again.
+     */
+    static File playFile(Context context, String id, Spec spec) {
+        if (!spec.processed()) return segmentFile(context, id);
+        return new File(voiceCacheDir(context), "fx-" + safe(id)
+            + "-f" + Math.round(spec.softness * 100) + "-r" + Math.round(spec.space * 100) + ".wav");
+    }
+
+    /**
+     * Deletes softened copies made for other softness settings. They pile up as the setting is
+     * tried out, and are remade from the cached speech in a moment if wanted again. Call on WORKER.
+     */
+    static void pruneProcessed(Context context, Spec keep) {
+        File[] files = voiceCacheDir(context).listFiles();
+        if (files == null) return;
+        String wanted = keep.processed()
+            ? "-f" + Math.round(keep.softness * 100) + "-r" + Math.round(keep.space * 100) + ".wav"
+            : null;
+        for (File f : files) {
+            String name = f.getName();
+            if (name.startsWith("fx-") && (wanted == null || !name.endsWith(wanted))) f.delete();
+        }
     }
 
     private static void copyAssetDir(AssetManager assets, String from, File to) throws IOException {
@@ -105,7 +167,8 @@ final class VoiceCore {
             st.setDurationPredictor(SUPERTONIC_ASSETS + "/duration_predictor.int8.onnx");
             st.setTextEncoder(SUPERTONIC_ASSETS + "/text_encoder.int8.onnx");
             st.setVectorEstimator(SUPERTONIC_ASSETS + "/vector_estimator.int8.onnx");
-            st.setVocoder(SUPERTONIC_ASSETS + "/vocoder.int8.onnx");
+            // The full-precision vocoder: the compressed one adds an audible hiss.
+            st.setVocoder(SUPERTONIC_ASSETS + "/" + SUPERTONIC_VOCODER);
             st.setTtsJson(SUPERTONIC_ASSETS + "/tts.json");
             st.setUnicodeIndexer(SUPERTONIC_ASSETS + "/unicode_indexer.bin");
             st.setVoiceStyle(SUPERTONIC_ASSETS + "/voice.bin");
@@ -138,30 +201,42 @@ final class VoiceCore {
     }
 
     /**
-     * Generates one line of speech into the cache unless it is already there. Call on WORKER.
-     * @return true if the file was already cached
+     * Makes sure one line of speech is ready to play, generating it if needed. Call on WORKER.
+     * @return true if the speech itself was already cached
      */
-    static boolean synthesize(Context context, String id, String text, float speed, String model, int sid, int steps)
-        throws IOException {
-        File out = segmentFile(context, id);
-        if (out.length() > 0) return true;
+    static boolean synthesize(Context context, String id, String text, Spec spec) throws IOException {
+        File raw = segmentFile(context, id);
+        File play = playFile(context, id, spec);
+        if (play.length() > 0) return true;
 
-        OfflineTts voice = engine(context, model);
-        GeneratedAudio audio;
-        if (steps > 0) {
-            GenerationConfig config = new GenerationConfig();
-            config.setSid(sid);
-            config.setSpeed(speed);
-            config.setNumSteps(steps);
-            audio = voice.generateWithConfig(text, config);
-        } else {
-            audio = voice.generate(text, sid, speed);
+        boolean cached = raw.length() > 0;
+        float[] samples = null;
+        int rate = 0;
+        if (!cached) {
+            OfflineTts voice = engine(context, spec.model);
+            GeneratedAudio audio;
+            if (spec.steps > 0) {
+                GenerationConfig config = new GenerationConfig();
+                config.setSid(spec.sid);
+                config.setSpeed(spec.speed);
+                config.setNumSteps(spec.steps);
+                audio = voice.generateWithConfig(text, config);
+            } else {
+                audio = voice.generate(text, spec.sid, spec.speed);
+            }
+            rate = audio.getSampleRate();
+            if (audio.getSamples().length == 0) throw new IOException("Could not generate speech");
+            samples = VoiceFx.level(audio.getSamples(), rate);
+            Wav.write(raw, samples, rate);
         }
-        File tmp = new File(out.getPath() + ".part");
-        if (audio.getSamples().length == 0 || !audio.save(tmp.getAbsolutePath()) || !tmp.renameTo(out)) {
-            tmp.delete();
-            throw new IOException("Could not generate speech");
+        if (spec.processed()) {
+            if (samples == null) {
+                Wav wav = Wav.read(raw);
+                samples = wav.samples();
+                rate = wav.sampleRate;
+            }
+            Wav.write(play, VoiceFx.apply(samples, rate, spec.softness, spec.space), rate);
         }
-        return false;
+        return cached;
     }
 }

@@ -20,6 +20,9 @@ import com.k2fsa.sherpa.onnx.OfflineTts;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -56,7 +59,8 @@ public class NeuralVoicePlugin extends Plugin {
         JSObject ret = new JSObject();
         ret.put("piper", piper);
         ret.put("kokoro", piper && VoiceCore.bundled(c, VoiceCore.KOKORO_ASSETS, "model.onnx"));
-        ret.put("supertonic", VoiceCore.bundled(c, VoiceCore.SUPERTONIC_ASSETS, "vocoder.int8.onnx"));
+        ret.put("supertonic", VoiceCore.bundled(c, VoiceCore.SUPERTONIC_ASSETS, VoiceCore.SUPERTONIC_VOCODER));
+        ret.put("sounds", Ambience.available(c));
         ret.put("cores", VoiceCore.cores());
         ret.put("ramMb", VoiceCore.ramMb(c));
         call.resolve(ret);
@@ -84,16 +88,23 @@ public class NeuralVoicePlugin extends Plugin {
         });
     }
 
+    private static VoiceCore.Spec spec(PluginCall call) {
+        return new VoiceCore.Spec(
+            call.getString("model", "piper"),
+            call.getInt("sid", 0),
+            call.getFloat("speed", 0.85f),
+            call.getInt("steps", 0),
+            call.getFloat("softness", 0f),
+            call.getFloat("space", 0f));
+    }
+
     // ── One line at a time ─────────────────────────────────────────────────────────────────────
 
     @PluginMethod
     public void prepare(PluginCall call) {
         String id = call.getString("id");
         String text = call.getString("text");
-        float speed = call.getFloat("speed", 0.85f);
-        String model = call.getString("model", "piper");
-        int sid = call.getInt("sid", 0);
-        int steps = call.getInt("steps", 0);
+        final VoiceCore.Spec voice = spec(call);
         if (id == null || text == null) {
             call.reject("id and text are required");
             return;
@@ -106,7 +117,7 @@ public class NeuralVoicePlugin extends Plugin {
             }
             try {
                 JSObject ret = new JSObject();
-                ret.put("cached", VoiceCore.synthesize(getContext(), id, text, speed, model, sid, steps));
+                ret.put("cached", VoiceCore.synthesize(getContext(), id, text, voice));
                 call.resolve(ret);
             } catch (Throwable e) {
                 call.reject("Could not generate speech: " + e.getMessage());
@@ -121,7 +132,7 @@ public class NeuralVoicePlugin extends Plugin {
             call.reject("id is required");
             return;
         }
-        File file = VoiceCore.segmentFile(getContext(), id);
+        File file = VoiceCore.playFile(getContext(), id, spec(call));
         getActivity().runOnUiThread(() -> {
             finishPlayback(true);
             MediaPlayer mp = new MediaPlayer();
@@ -204,7 +215,6 @@ public class NeuralVoicePlugin extends Plugin {
     @PluginMethod
     public void startSession(PluginCall call) {
         JSArray lines = call.getArray("lines");
-        String model = call.getString("model", "supertonic");
         if (lines == null || lines.length() == 0) {
             call.reject("lines are required");
             return;
@@ -225,17 +235,16 @@ public class NeuralVoicePlugin extends Plugin {
             return;
         }
         final String title = call.getString("title", "Meditation");
-        final int sid = call.getInt("sid", 0);
-        final float speed = call.getFloat("speed", 0.75f);
-        final int steps = call.getInt("steps", 0);
+        final VoiceCore.Spec voice = spec(call);
         final int lead = call.getInt("lead", 2);
+        final int startIndex = call.getInt("startIndex", 0);
 
         getActivity().runOnUiThread(() -> {
             try {
                 if (MeditationSession.current != null) MeditationSession.current.replace();
                 finishPlayback(true);
                 MeditationSession session = new MeditationSession(
-                    getContext(), title, ids, texts, pauses, model, sid, speed, steps, lead);
+                    getContext(), title, ids, texts, pauses, voice, lead, startIndex);
                 session.begin();
                 MeditationService.start(getContext());
                 call.resolve();
@@ -271,6 +280,12 @@ public class NeuralVoicePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void seekSession(PluginCall call) {
+        int index = call.getInt("index", 0);
+        withSession(call, session -> session.seek(index));
+    }
+
+    @PluginMethod
     public void stopSession(PluginCall call) {
         withSession(call, MeditationSession::stop);
     }
@@ -286,17 +301,40 @@ public class NeuralVoicePlugin extends Plugin {
         });
     }
 
+    // ── Background sounds ──────────────────────────────────────────────────────────────────────
+
+    /** Sets the volume (0..1) of every background sound layer; layers left out are switched off. */
+    @PluginMethod
+    public void setSounds(PluginCall call) {
+        JSObject levels = call.getObject("levels", new JSObject());
+        Map<String, Float> volumes = new HashMap<>();
+        for (Iterator<String> keys = levels.keys(); keys.hasNext();) {
+            String id = keys.next();
+            volumes.put(id, (float) levels.optDouble(id, 0));
+        }
+        Ambience.setLevels(getContext(), volumes);
+        call.resolve();
+    }
+
+    /** Plays the chosen sounds on their own, for setting them up or when the app times the lines. */
+    @PluginMethod
+    public void previewSounds(PluginCall call) {
+        Ambience.preview(call.getBoolean("on", false));
+        call.resolve();
+    }
+
     // ── Housekeeping ───────────────────────────────────────────────────────────────────────────
 
     /** Deletes generated speech whose id starts with the prefix (all of it when the prefix is empty). */
     @PluginMethod
     public void clearCache(PluginCall call) {
-        String prefix = "seg-" + call.getString("prefix", "").replaceAll("[^A-Za-z0-9_-]", "");
+        String prefix = call.getString("prefix", "").replaceAll("[^A-Za-z0-9_-]", "");
         VoiceCore.WORKER.execute(() -> {
             File[] files = VoiceCore.voiceCacheDir(getContext()).listFiles();
             if (files != null) {
                 for (File f : files) {
-                    if (f.getName().startsWith(prefix)) f.delete();
+                    String name = f.getName();
+                    if (name.startsWith("seg-" + prefix) || name.startsWith("fx-" + prefix)) f.delete();
                 }
             }
             call.resolve();
@@ -317,6 +355,7 @@ public class NeuralVoicePlugin extends Plugin {
     protected void handleOnDestroy() {
         epoch.incrementAndGet();
         releasePlayer();
+        Ambience.preview(false);
         // A relaunched activity may already have registered its own plugin; leave its session alone.
         if (MeditationSession.listener == sessionListener) {
             MeditationSession.listener = null;

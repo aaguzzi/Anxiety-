@@ -6,7 +6,9 @@ These binaries are too large for git, so the Android build needs this run once:
 """
 import json
 import os
+import struct
 import sys
+from array import array
 import urllib.parse
 import urllib.request
 
@@ -24,8 +26,18 @@ KOKORO_FILES = ["model.onnx", "voices.bin", "tokens.txt", "lexicon-us-en.txt"]
 KOKORO_OUT = os.path.join(ROOT, "android/app/src/main/assets/voice-kokoro")
 SUPERTONIC_REPO = "csukuangfj2/sherpa-onnx-supertonic-3-tts-int8-2026-05-11"
 SUPERTONIC_FILES = ["duration_predictor.int8.onnx", "text_encoder.int8.onnx", "vector_estimator.int8.onnx",
-                    "vocoder.int8.onnx", "tts.json", "unicode_indexer.bin", "voice.bin"]
+                    "tts.json", "unicode_indexer.bin", "voice.bin"]
 SUPERTONIC_OUT = os.path.join(ROOT, "android/app/src/main/assets/voice-supertonic")
+# The vocoder is the one part where the compressed model is audibly worse (a steady hiss), so the
+# full-precision original is used for it. The other parts measure the same either way.
+VOCODER_REPO = "Supertone/supertonic-3"
+VOCODER_FILE = "onnx/vocoder.onnx"
+# Extra voices made by mixing two of the model's ten: (base voice, other voice, share of the other).
+# They are appended in this order, so they become voice numbers 10, 11, ...
+BLENDS = [
+    (4, 0, 0.3),   # Ruth with some of Clara's gentler endings
+    (5, 8, 0.4),   # Theo with some of Sam's softer tone
+]
 
 
 def fetch(repo, path, dest):
@@ -39,6 +51,35 @@ def fetch_url(url, dest):
     tmp = dest + ".part"
     urllib.request.urlretrieve(url, tmp)
     os.replace(tmp, dest)
+
+
+def add_blended_voices(path):
+    """Appends the BLENDS voices to Supertonic's voice file. Does nothing if they are already there."""
+    with open(path, "rb") as f:
+        raw = f.read()
+    count, a, b, count2, c, d = struct.unpack("<6q", raw[:48])
+    if count != 10 or count2 != 10:
+        return
+    values = array("f")
+    values.frombytes(raw[48:])
+    if sys.byteorder != "little":
+        values.byteswap()
+    # Each voice is two style vectors: one for how it sounds, one for its rhythm.
+    tone, rhythm = a * b, c * d
+    tones = [values[i * tone:(i + 1) * tone] for i in range(count)]
+    rhythms = [values[count * tone + i * rhythm:count * tone + (i + 1) * rhythm] for i in range(count)]
+    for base, other, share in BLENDS:
+        for styles in (tones, rhythms):
+            styles.append(array("f", [x * (1 - share) + y * share for x, y in zip(styles[base], styles[other])]))
+    out = array("f")
+    for style in tones + rhythms:
+        out.extend(style)
+    if sys.byteorder != "little":
+        out.byteswap()
+    with open(path + ".part", "wb") as f:
+        f.write(struct.pack("<6q", len(tones), a, b, len(rhythms), c, d))
+        f.write(out.tobytes())
+    os.replace(path + ".part", path)
 
 
 def tree(repo, path):
@@ -70,6 +111,11 @@ def main():
     print("studio voices (Supertonic 3) ...")
     for name in SUPERTONIC_FILES:
         fetch(SUPERTONIC_REPO, name, os.path.join(SUPERTONIC_OUT, name))
+    fetch(VOCODER_REPO, VOCODER_FILE, os.path.join(SUPERTONIC_OUT, "vocoder.onnx"))
+    old_vocoder = os.path.join(SUPERTONIC_OUT, "vocoder.int8.onnx")
+    if os.path.exists(old_vocoder):
+        os.remove(old_vocoder)  # no longer used; don't ship it
+    add_blended_voices(os.path.join(SUPERTONIC_OUT, "voice.bin"))
     print("done")
 
 

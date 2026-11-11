@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Meditation } from '../types';
-import { estimateSeconds } from '../lib/meditationScript';
+import { Meditation, MeditationSetup } from '../types';
+import { BALANCES, ENDINGS, estimateSeconds, LENGTHS, POSITIONS, PRACTICES } from '../lib/meditationScript';
 import { STARTER_GROUPS, starterMeditations } from '../data/starterMeditations';
 
 const IDEAS = [
@@ -11,19 +11,51 @@ const IDEAS = [
   'Feeling overwhelmed',
 ];
 
-const LENGTHS = [3, 5, 10];
-
 interface Props {
   hasKey: boolean;
   speechSpeed: number;
   pauseScale: number;
+  /** One line saying which voice and sounds are in use. */
+  voiceSummary: string;
   meditations: Meditation[];
+  setup: MeditationSetup;
   busy: boolean;
   error: string | null;
-  onCreate: (prompt: string, minutes: number) => Promise<boolean>;
+  onSetup: (setup: MeditationSetup) => void;
+  onCreate: (prompt: string, setup: MeditationSetup) => Promise<boolean>;
   onPlay: (m: Meditation) => void;
   onDelete: (id: string) => void;
-  onOpenSettings: (target: 'voice' | 'key') => void;
+  onOpenVoice: () => void;
+  onOpenKey: () => void;
+}
+
+interface ChoiceProps<T extends string | number> {
+  title: string;
+  options: readonly { id: T; label: string }[];
+  value: T;
+  disabled: boolean;
+  onPick: (id: T) => void;
+}
+
+function Choice<T extends string | number>({ title, options, value, disabled, onPick }: ChoiceProps<T>) {
+  return (
+    <>
+      <div className="settings-row-title mt-4">{title}</div>
+      <div className="chip-row" role="group" aria-label={title}>
+        {options.map(o => (
+          <button
+            key={o.id}
+            className={`chip ${value === o.id ? 'selected' : ''}`}
+            aria-pressed={value === o.id}
+            disabled={disabled}
+            onClick={() => onPick(o.id)}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
 }
 
 function minutesOf(m: Meditation, speed: number, pauseScale: number): number {
@@ -38,14 +70,17 @@ function PlayIcon() {
   );
 }
 
-export default function Meditate({ hasKey, speechSpeed, pauseScale, meditations, busy, error, onCreate, onPlay, onDelete, onOpenSettings }: Props) {
+export default function Meditate({
+  hasKey, speechSpeed, pauseScale, voiceSummary, meditations, setup, busy, error,
+  onSetup, onCreate, onPlay, onDelete, onOpenVoice, onOpenKey,
+}: Props) {
   const [prompt, setPrompt] = useState('');
-  const [minutes, setMinutes] = useState(5);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const set = (patch: Partial<MeditationSetup>) => onSetup({ ...setup, ...patch });
 
   async function create() {
     if (!prompt.trim() || busy) return;
-    if (await onCreate(prompt, minutes)) setPrompt('');
+    if (await onCreate(prompt, setup)) setPrompt('');
   }
 
   const saved = [...meditations].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -55,8 +90,17 @@ export default function Meditate({ hasKey, speechSpeed, pauseScale, meditations,
       <div className="toolbox-header">
         <div className="toolbox-title">Meditate</div>
         <div className="toolbox-sub">Guided meditations, read aloud on your phone</div>
-        <button className="btn btn-outline voice-pace-btn" onClick={() => onOpenSettings('voice')}>Voice and pace</button>
       </div>
+
+      <button className="card voice-card" onClick={onOpenVoice}>
+        <span className="voice-card-text">
+          <span className="exercise-card-title">Voice &amp; sounds</span>
+          <span className="settings-row-sub">{voiceSummary}</span>
+        </span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+          <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
 
       {STARTER_GROUPS.map(group => (
         <div className="home-section" key={group}>
@@ -85,7 +129,7 @@ export default function Meditate({ hasKey, speechSpeed, pauseScale, meditations,
               Describe what's on your mind and get a meditation written for it. This uses Claude, Anthropic's AI,
               and needs your own Anthropic API key (a paid developer account). The voice itself runs on your phone.
             </p>
-            <button className="btn btn-primary w-full" onClick={() => onOpenSettings('key')}>Add API key</button>
+            <button className="btn btn-primary w-full" onClick={onOpenKey}>Add API key</button>
           </div>
         ) : (
           <div className="card settings-card">
@@ -105,20 +149,29 @@ export default function Meditate({ hasKey, speechSpeed, pauseScale, meditations,
               ))}
             </div>
 
-            <div className="settings-row-title mt-4">Length</div>
-            <div className="chip-row">
-              {LENGTHS.map(m => (
-                <button
-                  key={m}
-                  className={`chip ${minutes === m ? 'selected' : ''}`}
-                  aria-pressed={minutes === m}
-                  disabled={busy}
-                  onClick={() => setMinutes(m)}
-                >
-                  {m} min
-                </button>
-              ))}
-            </div>
+            <Choice
+              title="Length"
+              options={LENGTHS.map(m => ({ id: m, label: `${m} min` }))}
+              value={setup.minutes}
+              disabled={busy}
+              onPick={minutes => set({ minutes })}
+            />
+            <Choice title="Practice" options={PRACTICES} value={setup.practice} disabled={busy} onPick={practice => set({ practice })} />
+            <Choice title="Guidance" options={BALANCES} value={setup.balance} disabled={busy} onPick={balance => set({ balance })} />
+            <Choice title="I'll be" options={POSITIONS} value={setup.position} disabled={busy} onPick={position => set({ position })} />
+            <Choice title="End by bringing me" options={ENDINGS} value={setup.ending} disabled={busy} onPick={ending => set({ ending })} />
+
+            <label className="settings-row-title mt-4 block" htmlFor="med-notes">Anything to include or leave out? (optional)</label>
+            <input
+              id="med-notes"
+              type="text"
+              className="form-input w-full mt-2"
+              placeholder="e.g. no counting breaths; mention the sea"
+              maxLength={200}
+              value={setup.notes}
+              disabled={busy}
+              onChange={e => set({ notes: e.target.value })}
+            />
 
             {error && !busy && <p className="form-error" role="alert">{error}</p>}
 
@@ -127,7 +180,7 @@ export default function Meditate({ hasKey, speechSpeed, pauseScale, meditations,
             </button>
             {busy && (
               <p className="caption-text mt-2 text-center">
-                This usually takes 10 to 30 seconds. It will be saved below even if you leave this screen.
+                This usually takes under a minute. It will be saved below even if you leave this screen.
               </p>
             )}
           </div>

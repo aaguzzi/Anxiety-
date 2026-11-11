@@ -8,24 +8,32 @@ type NeuralModel = 'piper' | 'kokoro' | 'supertonic';
 
 export type InstalledModels = Record<NeuralModel, boolean>;
 
+/** Everything the phone needs to know about how a line should sound. */
+interface VoiceSpec {
+  model: NeuralModel;
+  sid: number;
+  speed: number;
+  steps: number;
+  softness: number;
+  space: number;
+}
+
 interface NeuralVoicePlugin {
   info(): Promise<InstalledModels & { cores: number; ramMb: number }>;
   benchmark(): Promise<VoiceBench>;
-  prepare(options: { id: string; text: string; speed: number; model: NeuralModel; sid: number; steps: number }): Promise<{ cached: boolean }>;
-  play(options: { id: string }): Promise<{ stopped: boolean }>;
+  prepare(options: VoiceSpec & { id: string; text: string }): Promise<{ cached: boolean }>;
+  play(options: VoiceSpec & { id: string }): Promise<{ stopped: boolean }>;
   stop(options?: { cancelQueued: boolean }): Promise<void>;
-  startSession(options: {
+  startSession(options: VoiceSpec & {
     title: string;
     lines: { id: string; text: string; pauseMs: number }[];
-    model: NeuralModel;
-    sid: number;
-    speed: number;
-    steps: number;
     lead: number;
+    startIndex: number;
   }): Promise<void>;
   pauseSession(): Promise<void>;
   resumeSession(): Promise<void>;
   skipSession(options: { by: number }): Promise<void>;
+  seekSession(options: { index: number }): Promise<void>;
   stopSession(): Promise<void>;
   sessionState(): Promise<SessionState>;
   addListener(event: 'sessionState', handler: (state: SessionState) => void): Promise<PluginListenerHandle>;
@@ -35,7 +43,7 @@ interface NeuralVoicePlugin {
 
 const NeuralVoice = registerPlugin<NeuralVoicePlugin>('NeuralVoice');
 
-export type VoiceGroup = 'Recommended' | 'Studio voices' | 'Natural voices' | 'Basic';
+export type VoiceGroup = 'Recommended' | 'Women' | 'Men' | 'Natural voices' | 'Basic';
 
 export interface VoiceOption {
   id: string;
@@ -45,21 +53,29 @@ export interface VoiceOption {
   /** Absent for "auto" and the phone's built-in voice. */
   model?: NeuralModel;
   sid?: number;
+  /**
+   * Softness this voice gets before the listener's own setting. The brighter voices get more, so
+   * that one Softness setting suits every voice. From measuring each voice's treble against Ruth's.
+   */
+  soften?: number;
 }
 
 export const VOICES: VoiceOption[] = [
   { id: 'auto', group: 'Recommended', label: 'Automatic', detail: 'The best voice your phone can run smoothly' },
   // Supertonic 3: 44 kHz, quick to prepare, and sentence endings trail off. Ruth tested best.
-  { id: 'ruth', group: 'Studio voices', label: 'Ruth', detail: 'Woman · low and unhurried', model: 'supertonic', sid: 4 },
-  { id: 'clara', group: 'Studio voices', label: 'Clara', detail: 'Woman · gentle, soft endings', model: 'supertonic', sid: 0 },
-  { id: 'iris', group: 'Studio voices', label: 'Iris', detail: 'Woman', model: 'supertonic', sid: 2 },
-  { id: 'nora', group: 'Studio voices', label: 'Nora', detail: 'Woman', model: 'supertonic', sid: 3 },
-  { id: 'maya', group: 'Studio voices', label: 'Maya', detail: 'Woman · brighter', model: 'supertonic', sid: 1 },
-  { id: 'theo', group: 'Studio voices', label: 'Theo', detail: 'Man · light and warm', model: 'supertonic', sid: 5 },
-  { id: 'sam', group: 'Studio voices', label: 'Sam', detail: 'Man', model: 'supertonic', sid: 8 },
-  { id: 'luke', group: 'Studio voices', label: 'Luke', detail: 'Man', model: 'supertonic', sid: 7 },
-  { id: 'owen', group: 'Studio voices', label: 'Owen', detail: 'Man · deep and level', model: 'supertonic', sid: 6 },
-  { id: 'hugo', group: 'Studio voices', label: 'Hugo', detail: 'Man · deep', model: 'supertonic', sid: 9 },
+  // Numbers 10 and up are blends added by scripts/fetch-voice.py.
+  { id: 'ruth', group: 'Women', label: 'Ruth', detail: 'Low and unhurried', model: 'supertonic', sid: 4 },
+  { id: 'ruth-soft', group: 'Women', label: 'Ruth, gentler', detail: "Ruth with some of Clara's soft endings", model: 'supertonic', sid: 10 },
+  { id: 'clara', group: 'Women', label: 'Clara', detail: 'Gentle, soft endings', model: 'supertonic', sid: 0 },
+  { id: 'iris', group: 'Women', label: 'Iris', detail: 'Clear and even', model: 'supertonic', sid: 2, soften: 0.15 },
+  { id: 'nora', group: 'Women', label: 'Nora', detail: 'Clear and bright', model: 'supertonic', sid: 3, soften: 0.3 },
+  { id: 'maya', group: 'Women', label: 'Maya', detail: 'Brighter', model: 'supertonic', sid: 1, soften: 0.25 },
+  { id: 'theo', group: 'Men', label: 'Theo', detail: 'Light and warm', model: 'supertonic', sid: 5, soften: 0.4 },
+  { id: 'theo-soft', group: 'Men', label: 'Theo, softer', detail: "Theo with some of Sam's softness", model: 'supertonic', sid: 11, soften: 0.05 },
+  { id: 'sam', group: 'Men', label: 'Sam', detail: 'The softest', model: 'supertonic', sid: 8 },
+  { id: 'owen', group: 'Men', label: 'Owen', detail: 'Deep and level', model: 'supertonic', sid: 6, soften: 0.1 },
+  { id: 'luke', group: 'Men', label: 'Luke', detail: 'Clear', model: 'supertonic', sid: 7, soften: 0.4 },
+  { id: 'hugo', group: 'Men', label: 'Hugo', detail: 'Deep', model: 'supertonic', sid: 9, soften: 0.15 },
   // Kokoro. Listed only when its model is bundled (it isn't by default; see scripts/fetch-voice.py).
   { id: 'emma', group: 'Natural voices', label: 'Emma', detail: 'British woman · very even', model: 'kokoro', sid: 21 },
   { id: 'river', group: 'Natural voices', label: 'River', detail: 'American woman · very even', model: 'kokoro', sid: 8 },
@@ -75,20 +91,7 @@ export const VOICES: VoiceOption[] = [
   { id: 'system', group: 'Basic', label: 'Phone voice', detail: "Your phone's built-in voice · least natural" },
 ];
 
-export const VOICE_GROUPS: { group: VoiceGroup; note: string }[] = [
-  { group: 'Recommended', note: '' },
-  { group: 'Studio voices', note: 'High-quality sound, ready in a few seconds.' },
-  { group: 'Natural voices', note: 'Chosen for a steady tone that settles at the end of each sentence. Slower to prepare.' },
-  { group: 'Basic', note: '' },
-];
-
-export const SPEEDS = [
-  { value: 0.55, label: 'Slowest' },
-  { value: 0.65, label: 'Slower' },
-  { value: 0.75, label: 'Slow' },
-  { value: 0.85, label: 'Relaxed' },
-  { value: 1, label: 'Natural' },
-];
+export const VOICE_GROUPS: VoiceGroup[] = ['Recommended', 'Women', 'Men', 'Natural voices', 'Basic'];
 
 /** One control for how unhurried a meditation feels: speaking speed and silence length together. */
 export const PACES = [
@@ -97,15 +100,9 @@ export const PACES = [
   { id: 'slow', label: 'Very slow', speed: 0.75, pauseScale: 2 },
 ] as const;
 
-/** The voices offered up front; the rest sit under Advanced. */
-export const FEATURED_VOICES = ['auto', 'ruth', 'clara', 'owen', 'theo'];
-
-export const PAUSE_SCALES = [
-  { value: 0.6, label: 'Shorter' },
-  { value: 1, label: 'As written' },
-  { value: 1.5, label: 'Longer' },
-  { value: 2, label: 'Longest' },
-];
+/** Slider ranges for the fine controls. */
+export const SPEED_RANGE = { min: 0.6, max: 1.1, step: 0.05 };
+export const PAUSE_RANGE = { min: 0.5, max: 2.5, step: 0.1 };
 
 export function voiceOption(id: string): VoiceOption {
   // 'neural' was the setting's name before there was more than one natural voice.
@@ -129,10 +126,13 @@ export interface BackgroundSession {
     title: string,
     lines: { key: string; text: string; pauseSeconds: number }[],
     onState: (state: SessionState) => void,
+    startIndex?: number,
   ): Promise<void>;
   pause(): void;
   resume(): void;
   skip(by: number): void;
+  /** Jump to a line. */
+  seek(index: number): void;
   /** Ask where playback is now, after the app was in the background. */
   sync(): Promise<SessionState>;
   stop(): Promise<void>;
@@ -163,22 +163,43 @@ export interface VoiceEngine {
 const STEPS = { best: 16, fast: 5 };
 export const MIN_STUDIO_SPEED = 0.75;
 
-function neuralEngine(voice: VoiceOption, speed: number, quality: 'best' | 'fast'): VoiceEngine {
+/** Bump when the voice models change, so speech generated by an older build isn't replayed. */
+const ENGINE_VERSION = '2';
+
+export interface VoiceTuning {
+  speed: number;
+  quality: 'best' | 'fast';
+  softness: number;
+  space: number;
+}
+
+function neuralEngine(voice: VoiceOption, tuning: VoiceTuning): VoiceEngine {
+  const { speed } = tuning;
   const model = voice.model!;
   const sid = voice.sid ?? 0;
-  const steps = model === 'supertonic' ? STEPS[quality] : 0;
+  const steps = model === 'supertonic' ? STEPS[tuning.quality] : 0;
   // The studio voices start repeating words when asked to speak slower than this.
   const genSpeed = model === 'supertonic' ? Math.max(speed, MIN_STUDIO_SPEED) : speed;
+  const spec: VoiceSpec = {
+    model,
+    sid,
+    speed: genSpeed,
+    steps,
+    softness: Math.min(1, Math.max(0, tuning.softness + (voice.soften ?? 0))),
+    space: Math.min(1, Math.max(0, tuning.space)),
+  };
   const ready = new Map<string, Promise<unknown>>();
   // Generated speech is cached per line, voice and speed, so changing either never replays a stale file.
-  const fileId = (key: string) => `${key}-${voice.id}-${Math.round(genSpeed * 100)}-p${PRONUNCIATION_VERSION}-s${steps}`;
+  // Softness and room aren't part of the id: the phone derives those from the cached speech.
+  const fileId = (key: string) =>
+    `${key}-${voice.id}-${Math.round(genSpeed * 100)}-p${PRONUNCIATION_VERSION}-s${steps}-e${ENGINE_VERSION}`;
   const prepare = (key: string, text: string) =>
-    NeuralVoice.prepare({ id: fileId(key), text: spokenText(text, model !== 'supertonic'), speed: genSpeed, model, sid, steps });
+    NeuralVoice.prepare({ ...spec, id: fileId(key), text: spokenText(text, model !== 'supertonic') });
   // Bumped on halt/stop so a line that was still being generated doesn't start playing afterwards.
   let generation = 0;
   let stateListener: Promise<PluginListenerHandle> | null = null;
   const background: BackgroundSession = {
-    async start(title, lines, onState) {
+    async start(title, lines, onState, startIndex = 0) {
       // The playback controls live in a notification; ask once if we may show it.
       try {
         const permission = await LocalNotifications.checkPermissions();
@@ -195,16 +216,15 @@ function neuralEngine(voice: VoiceOption, speed: number, quality: 'best' | 'fast
           text: spokenText(l.text, model !== 'supertonic'),
           pauseMs: Math.round(l.pauseSeconds * 1000),
         })),
-        model,
-        sid,
-        speed: genSpeed,
-        steps,
+        ...spec,
         lead: model === 'kokoro' || steps > STEPS.fast ? 4 : 2,
+        startIndex,
       });
     },
     pause: () => void NeuralVoice.pauseSession(),
     resume: () => void NeuralVoice.resumeSession(),
     skip: by => void NeuralVoice.skipSession({ by }),
+    seek: index => void NeuralVoice.seekSession({ index }),
     sync: () => NeuralVoice.sessionState(),
     async stop() {
       stateListener?.then(l => l.remove());
@@ -231,7 +251,7 @@ function neuralEngine(voice: VoiceOption, speed: number, quality: 'best' | 'fast
       const started = generation;
       await (ready.get(key) ?? prepare(key, text));
       if (started !== generation) return;
-      await NeuralVoice.play({ id: fileId(key) });
+      await NeuralVoice.play({ ...spec, id: fileId(key) });
     },
     async halt() {
       generation++;
@@ -341,7 +361,14 @@ export function automaticVoice(bench: VoiceBench | null, installed: InstalledMod
   return voiceOption('jenny');
 }
 
-type VoiceSettings = Pick<Settings, 'voiceChoice' | 'voiceBench' | 'speechSpeed' | 'voiceQuality'>;
+type VoiceSettings = Pick<Settings,
+  'voiceChoice' | 'voiceBench' | 'speechSpeed' | 'voiceQuality' | 'voiceSoftness' | 'voiceSpace'>;
+
+/** Changes whenever a setting that alters how a meditation is spoken or timed does. */
+export function voiceSettingsKey(settings: VoiceSettings & Pick<Settings, 'pauseScale'>): string {
+  return [settings.voiceChoice, settings.speechSpeed, settings.pauseScale, settings.voiceQuality,
+    settings.voiceSoftness, settings.voiceSpace].join('|');
+}
 
 /**
  * Builds the engine for the chosen voice. "Automatic" uses a one-off speed test to pick the best
@@ -350,11 +377,17 @@ type VoiceSettings = Pick<Settings, 'voiceChoice' | 'voiceBench' | 'speechSpeed'
  */
 export async function chooseEngine(settings: VoiceSettings, saveBench: (b: VoiceBench) => void): Promise<VoiceEngine> {
   const speed = settings.speechSpeed;
+  const tuning: VoiceTuning = {
+    speed,
+    quality: settings.voiceQuality,
+    softness: settings.voiceSoftness,
+    space: settings.voiceSpace,
+  };
   const choice = voiceOption(settings.voiceChoice);
   const installed = await installedModels();
 
   // A saved choice from a build that bundled other voices falls through to Automatic.
-  if (choice.model && installed[choice.model]) return neuralEngine(choice, speed, settings.voiceQuality);
+  if (choice.model && installed[choice.model]) return neuralEngine(choice, tuning);
   if (choice.id === 'system' || !installed.piper) return systemEngine(speed);
 
   let bench = settings.voiceBench;
@@ -366,7 +399,7 @@ export async function chooseEngine(settings: VoiceSettings, saveBench: (b: Voice
   if (!picked.model) return systemEngine(speed);
   // Automatic never asks for more than the device can keep up with.
   const canDoBest = picked.model !== 'supertonic' || bench!.rtf * STUDIO_COST.best <= MAX_RTF;
-  return neuralEngine(picked, speed, canDoBest ? settings.voiceQuality : 'fast');
+  return neuralEngine(picked, canDoBest ? tuning : { ...tuning, quality: 'fast' });
 }
 
 export function fallbackEngine(speed: number): VoiceEngine {
@@ -380,4 +413,15 @@ export function keepScreenAwake(on: boolean): void {
 /** Removes generated speech files: for one meditation (by id prefix) or all of them. */
 export function clearVoiceCache(prefix = ''): void {
   if (Capacitor.isNativePlatform()) NeuralVoice.clearCache({ prefix }).catch(() => {});
+}
+
+/** After an update that changed the voice models, drops speech generated by the old ones. */
+export function dropOutdatedVoiceCache(): void {
+  try {
+    if (localStorage.getItem('ac-voice-engine') === ENGINE_VERSION) return;
+    clearVoiceCache();
+    localStorage.setItem('ac-voice-engine', ENGINE_VERSION);
+  } catch {
+    // storage unavailable: stale files are harmless, their ids no longer match
+  }
 }

@@ -13,20 +13,22 @@ interface Props {
   settings: Settings;
   onChange: (update: (prev: Settings) => Settings) => void;
   onDeleteAll: () => void;
-  focus?: 'voice' | 'key' | null;
+  /** Scroll straight to the API key field. */
+  focusKey?: boolean;
   update?: AppUpdate | null;
+  onOpenVoice: () => void;
   onClose: () => void;
 }
 
-export default function SettingsView({ settings, onChange, onDeleteAll, focus, update, onClose }: Props) {
+export default function SettingsView({ settings, onChange, onDeleteAll, focusKey, update, onOpenVoice, onClose }: Props) {
   const [status, setStatus] = useState<ReminderResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const supported = remindersSupported();
 
   useEffect(() => {
-    if (focus) document.getElementById(focus === 'key' ? 'custom-meditations' : 'meditation-settings')?.scrollIntoView();
-  }, [focus]);
+    if (focusKey) document.getElementById('custom-meditations')?.scrollIntoView();
+  }, [focusKey]);
 
   async function updateReminder(enabled: boolean, time: string) {
     setBusy(true);
@@ -96,7 +98,7 @@ export default function SettingsView({ settings, onChange, onDeleteAll, focus, u
             </div>
           </div>
 
-          <MeditationSettings settings={settings} onChange={onChange} />
+          <MeditationSettings settings={settings} onChange={onChange} onOpenVoice={onOpenVoice} />
 
           <div className="settings-section">
             <div className="section-label">Trusted contact</div>

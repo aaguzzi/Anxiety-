@@ -104,3 +104,6 @@ app/src/main/res/xml/config.xml
 app/src/main/assets/voice/
 app/src/main/assets/voice-kokoro/
 app/src/main/assets/voice-supertonic/
+
+# Background sound loops (run scripts/make-ambience.py)
+app/src/main/assets/ambience/
