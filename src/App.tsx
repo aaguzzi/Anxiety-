@@ -41,7 +41,7 @@ const defaultSettings: Settings = {
   pauseScale: 1,
   voiceQuality: 'best',
   voiceSoftness: 0.3,
-  voiceSpace: 0.15,
+  voiceSpace: 0,
   sounds: {},
   meditationSetup: DEFAULT_SETUP,
 };
@@ -120,7 +120,7 @@ export default function App() {
     if (writing.busy) return false;
     setWriting({ busy: true, error: null });
     try {
-      const meditation = await generateMeditation(settings.anthropicKey.trim(), prompt, setup);
+      const meditation = await generateMeditation(settings.anthropicKey.trim(), prompt, setup, settings.speechSpeed);
       setMeditations(prev => [...prev, meditation]);
       setWriting({ busy: false, error: null });
       const nav = navRef.current;
@@ -132,7 +132,7 @@ export default function App() {
       setWriting({ busy: false, error: e instanceof ScriptError ? e.message : 'Something went wrong. Try again.' });
       return false;
     }
-  }, [writing.busy, settings.anthropicKey, setMeditations]);
+  }, [writing.busy, settings.anthropicKey, settings.speechSpeed, setMeditations]);
 
   const sounds = activeSounds(settings.sounds);
   const chosenVoice = voiceOption(settings.voiceChoice);

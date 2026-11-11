@@ -47,7 +47,7 @@ export const DEFAULT_SETUP: MeditationSetup = {
   notes: '',
 };
 
-const SYSTEM = `You write guided meditation scripts for an anxiety self-help app. A text-to-speech voice reads your script aloud to one person, who is listening with their eyes closed, often while anxious or tired.
+export const SYSTEM = `You write guided meditation scripts for an anxiety self-help app. A text-to-speech voice reads your script aloud to one person, who is listening with their eyes closed, often while anxious or tired.
 
 # Approach
 Mindfulness and acceptance. Help the listener notice what is here, make room for difficult feelings rather than fight them, step back from thoughts, return to the present, and reconnect with what matters to them. Don't promise that anxiety will go away; the aim is a different relationship with it. Never tell the listener that their worries are untrue or that everything will be fine.
@@ -154,10 +154,12 @@ function find<T extends { id: string }>(options: readonly T[], id: string): T {
 }
 
 /** The request for one meditation, spelled out so nothing is left to guesswork. */
-export function buildRequest(prompt: string, setup: MeditationSetup): string {
+export function buildRequest(prompt: string, setup: MeditationSetup, speed = 0.85): string {
   const balance = find(BALANCES, setup.balance);
   const seconds = setup.minutes * 60;
-  const words = Math.round((seconds * balance.spoken * WORDS_PER_SECOND) / 10) * 10;
+  // Slower speech fits fewer words into the same time.
+  const wordsPerSecond = WORDS_PER_SECOND * (Math.max(speed, MIN_VOICE_SPEED) / 0.85);
+  const words = Math.round((seconds * balance.spoken * wordsPerSecond) / 10) * 10;
   const silence = Math.round((seconds * (1 - balance.spoken)) / 5) * 5;
   const lines = [
     `Length: ${setup.minutes} minutes. Budget: about ${words} spoken words, and pauses adding up to about ${silence} seconds.`,
@@ -171,7 +173,9 @@ export function buildRequest(prompt: string, setup: MeditationSetup): string {
   return lines.join('\n');
 }
 
-export async function generateMeditation(apiKey: string, prompt: string, setup: MeditationSetup): Promise<Meditation> {
+export async function generateMeditation(
+  apiKey: string, prompt: string, setup: MeditationSetup, speed = 0.85,
+): Promise<Meditation> {
   // The key is the user's own, entered in Settings and kept on this device, so calling from the app is intended.
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 1, timeout: 180_000 });
 
@@ -184,7 +188,7 @@ export async function generateMeditation(apiKey: string, prompt: string, setup: 
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       system: SYSTEM,
-      messages: [{ role: 'user', content: buildRequest(prompt, setup) }],
+      messages: [{ role: 'user', content: buildRequest(prompt, setup, speed) }],
     });
   } catch (error) {
     if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) {

@@ -209,19 +209,6 @@ export default function VoicePanel({ settings, onChange, duringMeditation, onClo
               <p className="settings-row-sub">Takes the edge off the voice and makes it warmer.</p>
 
               <Slider
-                id="voice-space"
-                label="Room"
-                value={settings.voiceSpace}
-                min={0}
-                max={1}
-                step={0.05}
-                text={amount(settings.voiceSpace)}
-                onChange={v => set({ voiceSpace: v })}
-                onCommit={replay}
-              />
-              <p className="settings-row-sub">Adds the gentle echo of a quiet room, so the voice sounds less close to the ear.</p>
-
-              <Slider
                 id="voice-speed"
                 label="Speaking speed"
                 value={settings.speechSpeed}
@@ -248,6 +235,19 @@ export default function VoicePanel({ settings, onChange, duringMeditation, onClo
                 text={settings.pauseScale === 1 ? 'As written' : `${settings.pauseScale.toFixed(1)}× as long`}
                 onChange={v => set({ pauseScale: v })}
               />
+
+              <Slider
+                id="voice-space"
+                label="Room echo"
+                value={settings.voiceSpace}
+                min={0}
+                max={1}
+                step={0.05}
+                text={amount(settings.voiceSpace)}
+                onChange={v => set({ voiceSpace: v })}
+                onCommit={replay}
+              />
+              <p className="settings-row-sub">Off by default. Adds the echo of a quiet room around the voice.</p>
 
               <div className="settings-row-title mt-4">Quick pace</div>
               <div className="chip-row">
