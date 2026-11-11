@@ -50,15 +50,15 @@ export interface VoiceOption {
 export const VOICES: VoiceOption[] = [
   { id: 'auto', group: 'Recommended', label: 'Automatic', detail: 'The best voice your phone can run smoothly' },
   // Supertonic 3: 44 kHz, quick to prepare, and sentence endings trail off. Ruth tested best.
-  { id: 'ruth', group: 'Studio voices', label: 'Ruth', detail: 'Woman · lower, unhurried', model: 'supertonic', sid: 4 },
-  { id: 'clara', group: 'Studio voices', label: 'Clara', detail: 'Woman · endings trail off the most', model: 'supertonic', sid: 0 },
+  { id: 'ruth', group: 'Studio voices', label: 'Ruth', detail: 'Woman · low and unhurried', model: 'supertonic', sid: 4 },
+  { id: 'clara', group: 'Studio voices', label: 'Clara', detail: 'Woman · gentle, soft endings', model: 'supertonic', sid: 0 },
   { id: 'iris', group: 'Studio voices', label: 'Iris', detail: 'Woman', model: 'supertonic', sid: 2 },
   { id: 'nora', group: 'Studio voices', label: 'Nora', detail: 'Woman', model: 'supertonic', sid: 3 },
   { id: 'maya', group: 'Studio voices', label: 'Maya', detail: 'Woman · brighter', model: 'supertonic', sid: 1 },
-  { id: 'theo', group: 'Studio voices', label: 'Theo', detail: 'Man · lighter', model: 'supertonic', sid: 5 },
+  { id: 'theo', group: 'Studio voices', label: 'Theo', detail: 'Man · light and warm', model: 'supertonic', sid: 5 },
   { id: 'sam', group: 'Studio voices', label: 'Sam', detail: 'Man', model: 'supertonic', sid: 8 },
   { id: 'luke', group: 'Studio voices', label: 'Luke', detail: 'Man', model: 'supertonic', sid: 7 },
-  { id: 'owen', group: 'Studio voices', label: 'Owen', detail: 'Man · deep, level', model: 'supertonic', sid: 6 },
+  { id: 'owen', group: 'Studio voices', label: 'Owen', detail: 'Man · deep and level', model: 'supertonic', sid: 6 },
   { id: 'hugo', group: 'Studio voices', label: 'Hugo', detail: 'Man · deep', model: 'supertonic', sid: 9 },
   // Kokoro. Listed only when its model is bundled (it isn't by default; see scripts/fetch-voice.py).
   { id: 'emma', group: 'Natural voices', label: 'Emma', detail: 'British woman · very even', model: 'kokoro', sid: 21 },
@@ -89,6 +89,16 @@ export const SPEEDS = [
   { value: 0.85, label: 'Relaxed' },
   { value: 1, label: 'Natural' },
 ];
+
+/** One control for how unhurried a meditation feels: speaking speed and silence length together. */
+export const PACES = [
+  { id: 'brisk', label: 'Brisk', speed: 0.85, pauseScale: 0.6 },
+  { id: 'calm', label: 'Calm', speed: 0.75, pauseScale: 1 },
+  { id: 'slow', label: 'Very slow', speed: 0.75, pauseScale: 2 },
+] as const;
+
+/** The voices offered up front; the rest sit under Advanced. */
+export const FEATURED_VOICES = ['auto', 'ruth', 'clara', 'owen', 'theo'];
 
 export const PAUSE_SCALES = [
   { value: 0.6, label: 'Shorter' },

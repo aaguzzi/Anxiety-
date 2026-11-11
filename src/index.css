@@ -2238,3 +2238,7 @@ button.sense-check.done { background: var(--cat-grounding); }
 
 a.update-card { text-decoration: none; margin-top: 0; }
 .mt-4 { margin-top: 16px; }
+
+.advanced-toggle { margin-top: 14px; padding: 10px 0; font-size: 14px; color: var(--text-2); }
+.advanced-panel { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--border); }
+span.chip { cursor: default; }

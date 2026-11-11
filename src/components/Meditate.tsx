@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Meditation } from '../types';
 import { estimateSeconds } from '../lib/meditationScript';
-import { starterMeditations } from '../data/starterMeditations';
+import { STARTER_GROUPS, starterMeditations } from '../data/starterMeditations';
 
 const IDEAS = [
   'Winding down before sleep',
@@ -55,25 +55,27 @@ export default function Meditate({ hasKey, speechSpeed, pauseScale, meditations,
       <div className="toolbox-header">
         <div className="toolbox-title">Meditate</div>
         <div className="toolbox-sub">Guided meditations, read aloud on your phone</div>
-        <button className="btn btn-outline voice-pace-btn" onClick={() => onOpenSettings('voice')}>Voice, speed and pauses</button>
+        <button className="btn btn-outline voice-pace-btn" onClick={() => onOpenSettings('voice')}>Voice and pace</button>
       </div>
 
-      <div className="home-section">
-        <div className="home-section-title">Ready to play</div>
-        <div className="quick-exercises">
-          {starterMeditations.map(m => (
-            <div key={m.id} className="card saved-med">
-              <button className="saved-med-main" onClick={() => onPlay(m)}>
-                <PlayIcon />
-                <span className="saved-med-text">
-                  <span className="exercise-card-title">{m.title}</span>
-                  <span className="settings-row-sub">{minutesOf(m, speechSpeed, pauseScale)} min · {m.prompt}</span>
-                </span>
-              </button>
-            </div>
-          ))}
+      {STARTER_GROUPS.map(group => (
+        <div className="home-section" key={group}>
+          <div className="home-section-title">{group}</div>
+          <div className="quick-exercises">
+            {starterMeditations.filter(m => m.group === group).map(m => (
+              <div key={m.id} className="card saved-med">
+                <button className="saved-med-main" onClick={() => onPlay(m)}>
+                  <PlayIcon />
+                  <span className="saved-med-text">
+                    <span className="exercise-card-title">{m.title}</span>
+                    <span className="settings-row-sub">{minutesOf(m, speechSpeed, pauseScale)} min · {m.prompt}</span>
+                  </span>
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      ))}
 
       <div className="home-section">
         <div className="home-section-title">Make your own</div>
