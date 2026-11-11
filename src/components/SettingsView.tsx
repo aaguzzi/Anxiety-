@@ -4,6 +4,8 @@ import { applyReminder, remindersSupported, ReminderResult } from '../lib/remind
 import { formatTime12 } from '../lib/dates';
 import CrisisLines from './CrisisLines';
 import MeditationSettings from './MeditationSettings';
+import { AppUpdate } from '../lib/update';
+import { APP_VERSION_NAME } from '../version';
 
 export const PRIVACY_URL = 'https://d2l5gmsioco5hq.cloudfront.net/privacy.html';
 
@@ -12,10 +14,11 @@ interface Props {
   onChange: (update: (prev: Settings) => Settings) => void;
   onDeleteAll: () => void;
   focus?: 'voice' | 'key' | null;
+  update?: AppUpdate | null;
   onClose: () => void;
 }
 
-export default function SettingsView({ settings, onChange, onDeleteAll, focus, onClose }: Props) {
+export default function SettingsView({ settings, onChange, onDeleteAll, focus, update, onClose }: Props) {
   const [status, setStatus] = useState<ReminderResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -155,6 +158,12 @@ export default function SettingsView({ settings, onChange, onDeleteAll, focus, o
                 Anxiety Companion offers self-help practices inspired by mindfulness and acceptance-based approaches.
                 It is not a substitute for professional care, diagnosis, or treatment.
               </p>
+              <p className="settings-row-sub mt-4">Version {APP_VERSION_NAME}</p>
+              {update && (
+                <a className="btn btn-primary w-full mt-4" href={update.url} target="_blank" rel="noopener noreferrer">
+                  Download version {update.versionName}
+                </a>
+              )}
             </div>
           </div>
         </div>

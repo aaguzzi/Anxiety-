@@ -2225,3 +2225,16 @@ button.sense-check.done { background: var(--cat-grounding); }
 }
 
 .voice-listen:disabled { opacity: 0.5; }
+
+.voice-group { margin-top: 16px; }
+.voice-group-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+.voice-group .voice-list { margin-top: 6px; }
+
+a.update-card { text-decoration: none; margin-top: 0; }
+.mt-4 { margin-top: 16px; }

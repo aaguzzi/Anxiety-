@@ -7,6 +7,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { localDateKey } from './lib/dates';
 import { cancelReminder } from './lib/reminders';
 import { clearVoiceCache } from './lib/voice';
+import { AppUpdate, checkForUpdate } from './lib/update';
 import { generateMeditation, ScriptError } from './lib/meditationScript';
 import Navigation from './components/Navigation';
 import Home from './components/Home';
@@ -49,6 +50,11 @@ export default function App() {
   const [writing, setWriting] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const [settingsFocus, setSettingsFocus] = useState<'voice' | 'key' | null>(null);
   const screenRef = useRef<HTMLDivElement>(null);
+  const [update, setUpdate] = useState<AppUpdate | null>(null);
+
+  useEffect(() => {
+    checkForUpdate().then(setUpdate);
+  }, []);
 
   const navRef = useRef({ tab, activeExercise, overlay, activeMeditation });
   navRef.current = { tab, activeExercise, overlay, activeMeditation };
@@ -142,6 +148,7 @@ export default function App() {
             checkins={checkins}
             history={history}
             settings={settings}
+            update={update}
             onOpenExercise={setActiveExercise}
             onOpenSettings={() => setOverlay('settings')}
             onOpenHistory={() => setOverlay('history')}
@@ -217,6 +224,7 @@ export default function App() {
           onChange={setSettings}
           onDeleteAll={deleteAllData}
           focus={settingsFocus}
+          update={update}
           onClose={() => { setSettingsFocus(null); setOverlay('none'); }}
         />
       )}

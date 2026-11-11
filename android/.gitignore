@@ -103,3 +103,4 @@ app/src/main/res/xml/config.xml
 # On-device voice binaries (run scripts/fetch-voice.py)
 app/src/main/assets/voice/
 app/src/main/assets/voice-kokoro/
+app/src/main/assets/voice-supertonic/

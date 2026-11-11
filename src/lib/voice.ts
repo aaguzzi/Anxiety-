@@ -2,10 +2,12 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { Settings, VoiceBench } from '../types';
 
-type NeuralModel = 'piper' | 'kokoro';
+type NeuralModel = 'piper' | 'kokoro' | 'supertonic';
+
+export type InstalledModels = Record<NeuralModel, boolean>;
 
 interface NeuralVoicePlugin {
-  info(): Promise<{ piper: boolean; kokoro: boolean; cores: number; ramMb: number }>;
+  info(): Promise<InstalledModels & { cores: number; ramMb: number }>;
   benchmark(): Promise<VoiceBench>;
   prepare(options: { id: string; text: string; speed: number; model: NeuralModel; sid: number }): Promise<{ cached: boolean }>;
   play(options: { id: string }): Promise<{ stopped: boolean }>;
@@ -16,27 +18,49 @@ interface NeuralVoicePlugin {
 
 const NeuralVoice = registerPlugin<NeuralVoicePlugin>('NeuralVoice');
 
+export type VoiceGroup = 'Recommended' | 'Studio voices' | 'Expressive voices' | 'Basic';
+
 export interface VoiceOption {
   id: string;
   label: string;
   detail: string;
+  group: VoiceGroup;
   /** Absent for "auto" and the phone's built-in voice. */
   model?: NeuralModel;
   sid?: number;
 }
 
 export const VOICES: VoiceOption[] = [
-  { id: 'auto', label: 'Automatic', detail: 'Jenny if your phone is fast enough, otherwise the phone voice' },
-  { id: 'jenny', label: 'Jenny', detail: 'British woman · ready almost instantly', model: 'piper', sid: 0 },
-  { id: 'heart', label: 'Heart', detail: 'American woman', model: 'kokoro', sid: 3 },
-  { id: 'bella', label: 'Bella', detail: 'American woman', model: 'kokoro', sid: 2 },
-  { id: 'nicole', label: 'Nicole', detail: 'American woman · soft, close to a whisper', model: 'kokoro', sid: 6 },
-  { id: 'sarah', label: 'Sarah', detail: 'American woman', model: 'kokoro', sid: 9 },
-  { id: 'emma', label: 'Emma', detail: 'British woman', model: 'kokoro', sid: 21 },
-  { id: 'lily', label: 'Lily', detail: 'British woman', model: 'kokoro', sid: 23 },
-  { id: 'michael', label: 'Michael', detail: 'American man', model: 'kokoro', sid: 16 },
-  { id: 'george', label: 'George', detail: 'British man', model: 'kokoro', sid: 26 },
-  { id: 'system', label: 'Phone voice', detail: "Your phone's built-in voice · no waiting" },
+  { id: 'auto', group: 'Recommended', label: 'Automatic', detail: 'The best voice your phone can run smoothly' },
+  // Supertonic 3: 44 kHz, quick to prepare.
+  { id: 'clara', group: 'Studio voices', label: 'Clara', detail: 'Woman', model: 'supertonic', sid: 0 },
+  { id: 'maya', group: 'Studio voices', label: 'Maya', detail: 'Woman · brighter', model: 'supertonic', sid: 1 },
+  { id: 'iris', group: 'Studio voices', label: 'Iris', detail: 'Woman', model: 'supertonic', sid: 2 },
+  { id: 'nora', group: 'Studio voices', label: 'Nora', detail: 'Woman', model: 'supertonic', sid: 3 },
+  { id: 'ruth', group: 'Studio voices', label: 'Ruth', detail: 'Woman · lower', model: 'supertonic', sid: 4 },
+  { id: 'theo', group: 'Studio voices', label: 'Theo', detail: 'Man · lighter', model: 'supertonic', sid: 5 },
+  { id: 'owen', group: 'Studio voices', label: 'Owen', detail: 'Man · deep', model: 'supertonic', sid: 6 },
+  { id: 'luke', group: 'Studio voices', label: 'Luke', detail: 'Man', model: 'supertonic', sid: 7 },
+  { id: 'sam', group: 'Studio voices', label: 'Sam', detail: 'Man', model: 'supertonic', sid: 8 },
+  { id: 'hugo', group: 'Studio voices', label: 'Hugo', detail: 'Man · deep', model: 'supertonic', sid: 9 },
+  // Kokoro: slower to prepare.
+  { id: 'heart', group: 'Expressive voices', label: 'Heart', detail: 'American woman', model: 'kokoro', sid: 3 },
+  { id: 'bella', group: 'Expressive voices', label: 'Bella', detail: 'American woman', model: 'kokoro', sid: 2 },
+  { id: 'nicole', group: 'Expressive voices', label: 'Nicole', detail: 'American woman · soft, close to a whisper', model: 'kokoro', sid: 6 },
+  { id: 'sarah', group: 'Expressive voices', label: 'Sarah', detail: 'American woman', model: 'kokoro', sid: 9 },
+  { id: 'emma', group: 'Expressive voices', label: 'Emma', detail: 'British woman', model: 'kokoro', sid: 21 },
+  { id: 'lily', group: 'Expressive voices', label: 'Lily', detail: 'British woman', model: 'kokoro', sid: 23 },
+  { id: 'michael', group: 'Expressive voices', label: 'Michael', detail: 'American man', model: 'kokoro', sid: 16 },
+  { id: 'george', group: 'Expressive voices', label: 'George', detail: 'British man', model: 'kokoro', sid: 26 },
+  { id: 'jenny', group: 'Basic', label: 'Jenny', detail: 'British woman · ready instantly, less natural', model: 'piper', sid: 0 },
+  { id: 'system', group: 'Basic', label: 'Phone voice', detail: "Your phone's built-in voice · least natural" },
+];
+
+export const VOICE_GROUPS: { group: VoiceGroup; note: string }[] = [
+  { group: 'Recommended', note: '' },
+  { group: 'Studio voices', note: 'High-quality sound, ready in a few seconds.' },
+  { group: 'Expressive voices', note: 'Natural phrasing. Slow to prepare: up to a minute for a new meditation.' },
+  { group: 'Basic', note: '' },
 ];
 
 export const SPEEDS = [
@@ -179,13 +203,14 @@ function systemEngine(speed: number): VoiceEngine {
 }
 
 /** Which natural-voice models are installed in this build of the app. */
-export async function installedModels(): Promise<{ piper: boolean; kokoro: boolean }> {
-  if (!Capacitor.isNativePlatform()) return { piper: false, kokoro: false };
+export async function installedModels(): Promise<InstalledModels> {
+  const none = { piper: false, kokoro: false, supertonic: false };
+  if (!Capacitor.isNativePlatform()) return none;
   try {
-    const { piper, kokoro } = await NeuralVoice.info();
-    return { piper, kokoro };
+    const { piper, kokoro, supertonic } = await NeuralVoice.info();
+    return { piper: !!piper, kokoro: !!kokoro, supertonic: !!supertonic };
   } catch {
-    return { piper: false, kokoro: false };
+    return none;
   }
 }
 
@@ -206,11 +231,21 @@ export function benchVerdict(bench: VoiceBench | null): BenchVerdict {
   return bench.rtf <= MAX_RTF ? 'ok' : 'slow';
 }
 
+// The studio voices take roughly this many times longer to generate than the benchmark voice.
+const STUDIO_COST = 2.5;
+
+/** Which voice "Automatic" resolves to on this device. */
+export function automaticVoice(bench: VoiceBench | null, installed: InstalledModels): VoiceOption {
+  if (benchVerdict(bench) !== 'ok') return voiceOption('system');
+  if (installed.supertonic && bench!.rtf * STUDIO_COST <= MAX_RTF) return voiceOption('clara');
+  return voiceOption('jenny');
+}
+
 type VoiceSettings = Pick<Settings, 'voiceChoice' | 'voiceBench' | 'speechSpeed'>;
 
 /**
- * Builds the engine for the chosen voice. "Automatic" uses Jenny when a one-off speed test shows
- * the device keeps up, otherwise the phone's built-in voice. A chosen voice whose model isn't
+ * Builds the engine for the chosen voice. "Automatic" uses a one-off speed test to pick the best
+ * voice the device keeps up with. A chosen voice whose model isn't
  * installed also falls back to the phone voice.
  */
 export async function chooseEngine(settings: VoiceSettings, saveBench: (b: VoiceBench) => void): Promise<VoiceEngine> {
@@ -228,7 +263,8 @@ export async function chooseEngine(settings: VoiceSettings, saveBench: (b: Voice
     bench = await runBenchmark();
     if (bench) saveBench(bench);
   }
-  return benchVerdict(bench) === 'ok' ? neuralEngine(voiceOption('jenny'), speed) : systemEngine(speed);
+  const picked = automaticVoice(bench, installed);
+  return picked.model ? neuralEngine(picked, speed) : systemEngine(speed);
 }
 
 export function fallbackEngine(speed: number): VoiceEngine {

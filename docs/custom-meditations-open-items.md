@@ -25,6 +25,10 @@ skipped and must be resolved before the feature ships to other people.
 ## Licensing
 - **Voice model.** The bundled Piper voice ("Jenny", en_GB) is trained on the Jenny (Dioco) dataset;
   confirm its licence allows commercial distribution, or switch to a voice with a clear licence.
+- **Supertonic 3** (the "studio" voices) and **Kokoro** (the "expressive" voices): confirm each model's
+  licence terms for commercial distribution inside an app before release.
+- **Kyutai Pocket TTS** was sampled but not shipped: the available on-device export is marked
+  non-commercial. It can copy a voice from a short recording, so it is worth revisiting if the licence changes.
 - **espeak-ng** (pronunciation data used by the voice library) is GPL-3.0; confirm what that means for
   distributing it inside the app.
 
@@ -35,3 +39,7 @@ skipped and must be resolved before the feature ships to other people.
 - **The native voice plugin has only been compiled, not run on a device here.** If it fails at runtime the
   player falls back to the phone voice.
 - **Progress bar** moves per line, so it stands still during long silences.
+
+## App size
+- With three voice families bundled the test APK is about 400 MB. Google Play limits the base download,
+  so for release the voice models need to move to Play Asset Delivery or an in-app download.

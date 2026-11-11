@@ -1,6 +1,7 @@
 import { Exercise, CheckinEntry, PracticeHistory, Settings } from '../types';
 import { exercises } from '../data/exercises';
 import { remindersSupported } from '../lib/reminders';
+import { AppUpdate } from '../lib/update';
 import ExerciseCard from './ExerciseCard';
 import WeekChart from './WeekChart';
 
@@ -68,6 +69,7 @@ interface Props {
   checkins: CheckinEntry[];
   history: PracticeHistory;
   settings: Settings;
+  update: AppUpdate | null;
   onOpenExercise: (exercise: Exercise) => void;
   onOpenSettings: () => void;
   onOpenHistory: () => void;
@@ -75,7 +77,7 @@ interface Props {
 }
 
 export default function Home({
-  completedToday, practicesThisMonth, checkins, history, settings,
+  completedToday, practicesThisMonth, checkins, history, settings, update,
   onOpenExercise, onOpenSettings, onOpenHistory, onStartCheckin,
 }: Props) {
   const tod = getTimeOfDay();
@@ -106,6 +108,17 @@ export default function Home({
           </div>
         )}
       </div>
+
+      {update && (
+        <a className="reminder-prompt update-card" href={update.url} target="_blank" rel="noopener noreferrer">
+          <span className="reminder-prompt-icon">⬇️</span>
+          <div className="reminder-prompt-body">
+            <div className="reminder-prompt-title">Version {update.versionName} is available</div>
+            <div className="reminder-prompt-sub">Download it, then open the file to update. Your data is kept.</div>
+          </div>
+          <span className="reminder-prompt-cta">Update</span>
+        </a>
+      )}
 
       <div className="quote-block">
         <div className="quote-text">"{quote.text}"</div>

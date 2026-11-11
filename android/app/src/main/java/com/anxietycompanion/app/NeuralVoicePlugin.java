@@ -20,6 +20,7 @@ import com.k2fsa.sherpa.onnx.OfflineTts;
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig;
+import com.k2fsa.sherpa.onnx.OfflineTtsSupertonicModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig;
 
 import java.io.File;
@@ -32,11 +33,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** On-device neural text-to-speech (sherpa-onnx). Two bundled models: a fast Piper voice and multi-speaker Kokoro. */
+/** On-device neural text-to-speech (sherpa-onnx). Two bundled models: a fast Piper voice and multi-speaker Kokoro and Supertonic. */
 @CapacitorPlugin(name = "NeuralVoice")
 public class NeuralVoicePlugin extends Plugin {
     private static final String ASSETS = "voice";
     private static final String KOKORO_ASSETS = "voice-kokoro";
+    private static final String SUPERTONIC_ASSETS = "voice-supertonic";
     private static final String BENCH_TEXT = "Take a slow breath in, and notice where your body meets the chair.";
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -98,13 +100,23 @@ public class NeuralVoicePlugin extends Plugin {
         AssetManager assets = getContext().getAssets();
         File dataDir = new File(getContext().getFilesDir(), "voice/espeak-ng-data");
         File marker = new File(dataDir, ".copied-v1");
-        if (!marker.exists()) {
+        if (!"supertonic".equals(which) && !marker.exists()) {
             copyAssetDir(assets, ASSETS + "/espeak-ng-data", dataDir);
             marker.createNewFile();
         }
 
         OfflineTtsModelConfig model = new OfflineTtsModelConfig();
-        if ("kokoro".equals(which)) {
+        if ("supertonic".equals(which)) {
+            OfflineTtsSupertonicModelConfig st = new OfflineTtsSupertonicModelConfig();
+            st.setDurationPredictor(SUPERTONIC_ASSETS + "/duration_predictor.int8.onnx");
+            st.setTextEncoder(SUPERTONIC_ASSETS + "/text_encoder.int8.onnx");
+            st.setVectorEstimator(SUPERTONIC_ASSETS + "/vector_estimator.int8.onnx");
+            st.setVocoder(SUPERTONIC_ASSETS + "/vocoder.int8.onnx");
+            st.setTtsJson(SUPERTONIC_ASSETS + "/tts.json");
+            st.setUnicodeIndexer(SUPERTONIC_ASSETS + "/unicode_indexer.bin");
+            st.setVoiceStyle(SUPERTONIC_ASSETS + "/voice.bin");
+            model.setSupertonic(st);
+        } else if ("kokoro".equals(which)) {
             OfflineTtsKokoroModelConfig kokoro = new OfflineTtsKokoroModelConfig();
             kokoro.setModel(KOKORO_ASSETS + "/model.int8.onnx");
             kokoro.setVoices(KOKORO_ASSETS + "/voices.bin");
@@ -136,6 +148,7 @@ public class NeuralVoicePlugin extends Plugin {
         JSObject ret = new JSObject();
         ret.put("piper", bundled(ASSETS, "model.onnx"));
         ret.put("kokoro", bundled(KOKORO_ASSETS, "model.int8.onnx") && bundled(ASSETS, "model.onnx"));
+        ret.put("supertonic", bundled(SUPERTONIC_ASSETS, "vocoder.int8.onnx"));
         ret.put("cores", cores());
         ret.put("ramMb", ramMb());
         call.resolve(ret);

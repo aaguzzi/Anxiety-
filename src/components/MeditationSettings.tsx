@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Settings } from '../types';
 import {
-  benchVerdict, chooseEngine, installedModels, PAUSE_SCALES, SPEEDS, VoiceEngine, voiceOption, VOICES,
+  automaticVoice, benchVerdict, chooseEngine, InstalledModels, installedModels, PAUSE_SCALES, SPEEDS, VoiceEngine,
+  VOICE_GROUPS, voiceOption, VOICES,
 } from '../lib/voice';
 
 const SAMPLE = 'Take a slow breath in, and let it go. There is nothing you need to fix right now.';
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export default function MeditationSettings({ settings, onChange }: Props) {
-  const [installed, setInstalled] = useState<{ piper: boolean; kokoro: boolean } | null>(null);
+  const [installed, setInstalled] = useState<InstalledModels | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [listening, setListening] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -62,39 +63,45 @@ export default function MeditationSettings({ settings, onChange }: Props) {
   }
 
   const bench = settings.voiceBench;
-  const autoText = {
-    untested: '',
-    ok: `Jenny runs at ${bench ? (1 / bench.rtf).toFixed(1) : ''}× speaking speed on this device, so Automatic uses her.`,
-    slow: `Jenny runs at only ${bench ? (1 / bench.rtf).toFixed(1) : ''}× speaking speed on this device, so Automatic uses the phone voice.`,
-    'low-memory': "This device doesn't have enough memory for the natural voices, so Automatic uses the phone voice.",
-  }[benchVerdict(bench)];
+  const autoText = !installed || benchVerdict(bench) === 'untested'
+    ? ''
+    : benchVerdict(bench) === 'low-memory'
+      ? "This device doesn't have enough memory for the natural voices, so Automatic uses the phone voice."
+      : `On this device Automatic uses ${automaticVoice(bench, installed).label}.`;
 
   return (
     <div className="settings-section" id="meditation-settings">
       <div className="section-label">Meditation voice</div>
       <div className="card settings-card">
         <div className="settings-row-title">Voice</div>
-        <p className="settings-row-sub">
-          Tap Listen to hear each one at your chosen speed.
-          {installed?.kokoro && ' Every voice except Jenny and the phone voice needs a little time to prepare each new meditation.'}
-        </p>
-        <div className="voice-list">
-          {voices.map(v => (
-            <div key={v.id} className={`voice-row ${selected === v.id ? 'selected' : ''}`}>
-              <button
-                className="voice-pick"
-                aria-pressed={selected === v.id}
-                onClick={() => onChange(prev => ({ ...prev, voiceChoice: v.id }))}
-              >
-                <span className="voice-name">{selected === v.id ? '✓ ' : ''}{v.label}</span>
-                <span className="voice-detail">{v.detail}</span>
-              </button>
-              <button className="voice-listen" onClick={() => listen(v.id)} aria-label={`Listen to ${v.label}`}>
-                {listening === v.id ? 'Stop' : 'Listen'}
-              </button>
+        <p className="settings-row-sub">Tap Listen to hear each one at your chosen speed.</p>
+        {VOICE_GROUPS.map(({ group, note: groupNote }) => {
+          const inGroup = voices.filter(v => v.group === group);
+          if (inGroup.length === 0) return null;
+          return (
+            <div key={group} className="voice-group">
+              <div className="voice-group-title">{group}</div>
+              {groupNote && <div className="voice-detail">{groupNote}</div>}
+              <div className="voice-list">
+                {inGroup.map(v => (
+                  <div key={v.id} className={`voice-row ${selected === v.id ? 'selected' : ''}`}>
+                    <button
+                      className="voice-pick"
+                      aria-pressed={selected === v.id}
+                      onClick={() => onChange(prev => ({ ...prev, voiceChoice: v.id }))}
+                    >
+                      <span className="voice-name">{selected === v.id ? '✓ ' : ''}{v.label}</span>
+                      <span className="voice-detail">{v.detail}</span>
+                    </button>
+                    <button className="voice-listen" onClick={() => listen(v.id)} aria-label={`Listen to ${v.label}`}>
+                      {listening === v.id ? 'Stop' : 'Listen'}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
         {note && <p className="settings-row-sub mt-2" role="status">{note}</p>}
         {selected === 'auto' && autoText && <p className="settings-row-sub mt-2">{autoText}</p>}
         {installed && !installed.piper && (
