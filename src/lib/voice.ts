@@ -19,7 +19,7 @@ interface NeuralVoicePlugin {
 
 const NeuralVoice = registerPlugin<NeuralVoicePlugin>('NeuralVoice');
 
-export type VoiceGroup = 'Recommended' | 'Studio voices' | 'Expressive voices' | 'Basic';
+export type VoiceGroup = 'Recommended' | 'Studio voices' | 'Natural voices' | 'Basic';
 
 export interface VoiceOption {
   id: string;
@@ -44,15 +44,18 @@ export const VOICES: VoiceOption[] = [
   { id: 'luke', group: 'Studio voices', label: 'Luke', detail: 'Man', model: 'supertonic', sid: 7 },
   { id: 'sam', group: 'Studio voices', label: 'Sam', detail: 'Man', model: 'supertonic', sid: 8 },
   { id: 'hugo', group: 'Studio voices', label: 'Hugo', detail: 'Man · deep', model: 'supertonic', sid: 9 },
-  // Kokoro: slower to prepare.
-  { id: 'heart', group: 'Expressive voices', label: 'Heart', detail: 'American woman', model: 'kokoro', sid: 3 },
-  { id: 'bella', group: 'Expressive voices', label: 'Bella', detail: 'American woman', model: 'kokoro', sid: 2 },
-  { id: 'nicole', group: 'Expressive voices', label: 'Nicole', detail: 'American woman · soft, close to a whisper', model: 'kokoro', sid: 6 },
-  { id: 'sarah', group: 'Expressive voices', label: 'Sarah', detail: 'American woman', model: 'kokoro', sid: 9 },
-  { id: 'emma', group: 'Expressive voices', label: 'Emma', detail: 'British woman', model: 'kokoro', sid: 21 },
-  { id: 'lily', group: 'Expressive voices', label: 'Lily', detail: 'British woman', model: 'kokoro', sid: 23 },
-  { id: 'michael', group: 'Expressive voices', label: 'Michael', detail: 'American man', model: 'kokoro', sid: 16 },
-  { id: 'george', group: 'Expressive voices', label: 'George', detail: 'British man', model: 'kokoro', sid: 26 },
+  // Kokoro. Only voices whose pitch settles at the end of a sentence; the livelier ones
+  // (Heart, Bella) rise there, which doesn't suit meditation.
+  { id: 'emma', group: 'Natural voices', label: 'Emma', detail: 'British woman · very even', model: 'kokoro', sid: 21 },
+  { id: 'river', group: 'Natural voices', label: 'River', detail: 'American woman · very even', model: 'kokoro', sid: 8 },
+  { id: 'nicole', group: 'Natural voices', label: 'Nicole', detail: 'American woman · soft, close to a whisper', model: 'kokoro', sid: 6 },
+  { id: 'sky', group: 'Natural voices', label: 'Sky', detail: 'American woman', model: 'kokoro', sid: 10 },
+  { id: 'alloy', group: 'Natural voices', label: 'Alloy', detail: 'American woman · lower', model: 'kokoro', sid: 0 },
+  { id: 'lily', group: 'Natural voices', label: 'Lily', detail: 'British woman', model: 'kokoro', sid: 23 },
+  { id: 'adam', group: 'Natural voices', label: 'Adam', detail: 'American man · even', model: 'kokoro', sid: 11 },
+  { id: 'onyx', group: 'Natural voices', label: 'Onyx', detail: 'American man · deep', model: 'kokoro', sid: 17 },
+  { id: 'daniel', group: 'Natural voices', label: 'Daniel', detail: 'British man', model: 'kokoro', sid: 24 },
+  { id: 'george', group: 'Natural voices', label: 'George', detail: 'British man', model: 'kokoro', sid: 26 },
   { id: 'jenny', group: 'Basic', label: 'Jenny', detail: 'British woman · ready instantly, less natural', model: 'piper', sid: 0 },
   { id: 'system', group: 'Basic', label: 'Phone voice', detail: "Your phone's built-in voice · least natural" },
 ];
@@ -60,7 +63,7 @@ export const VOICES: VoiceOption[] = [
 export const VOICE_GROUPS: { group: VoiceGroup; note: string }[] = [
   { group: 'Recommended', note: '' },
   { group: 'Studio voices', note: 'High-quality sound, ready in a few seconds.' },
-  { group: 'Expressive voices', note: 'Natural phrasing. Slow to prepare: up to a minute for a new meditation.' },
+  { group: 'Natural voices', note: 'Chosen for a steady tone that settles at the end of each sentence. Slower to prepare.' },
   { group: 'Basic', note: '' },
 ];
 
