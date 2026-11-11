@@ -40,7 +40,7 @@ export const starterMeditations: Meditation[] = [
     ['And breathe out through your mouth, as if you were slowly fogging a window.', 7],
     ['Once more. In through the nose.', 4],
     ['And slowly out.', 8],
-    ['Now, with some curiosity, find where the anxiety lives in your body.', 6],
+    ['Now, with some curiosity, find where the anxiety sits in your body.', 6],
     ['It might be your chest, your stomach, your throat, or your shoulders.', 8],
     ['Notice its shape. Notice its edges. Is it tight, or heavy, or buzzing?', 10],
     ['You do not need to fix it or make it leave. Just see it clearly.', 8],

@@ -14,7 +14,7 @@ Your output is parsed by code, so follow this format exactly:
 - After that, each line is one spoken sentence or short phrase, 25 words at most.
 - Silence goes on its own line as [pause N], where N is a whole number of seconds from 2 to 30. Put a pause after most lines, with longer ones where the listener is asked to breathe, notice, or stay with something.
 - Plain spoken words only: no headings, markdown, emojis, stage directions or parentheses. Write numbers as words and avoid abbreviations, because the voice reads every character literally. Use commas and full stops to shape the pacing.
-- The voice cannot tell apart words that are spelled the same but pronounced differently by meaning. "Close your eyes" is fine, but avoid "close" meaning near (say "near"), and avoid: lead, read in the past tense, tear, bow, wound, minute meaning tiny, present as a verb, and live as in "live music".
+- The voice cannot tell apart words that are spelled the same but pronounced differently by meaning. "Close your eyes" is fine, but avoid "close" meaning near (say "near"), and avoid: lead, read in the past tense, tear, bow, wound, minute meaning tiny, present as a verb, and live or lives in any sense (say sits, stays or is instead).
 
 Timing: the voice speaks about ${WORDS_PER_SECOND} words per second. Spoken time plus pauses should add up to the requested length, with roughly half of it silence. End by gently bringing the listener back to the room.`;
 

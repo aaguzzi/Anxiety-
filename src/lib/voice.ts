@@ -114,7 +114,7 @@ function neuralEngine(voice: VoiceOption, speed: number): VoiceEngine {
   // Generated speech is cached per line, voice and speed, so changing either never replays a stale file.
   const fileId = (key: string) => `${key}-${voice.id}-${Math.round(speed * 100)}-p${PRONUNCIATION_VERSION}`;
   const prepare = (key: string, text: string) =>
-    NeuralVoice.prepare({ id: fileId(key), text: spokenText(text), speed, model, sid });
+    NeuralVoice.prepare({ id: fileId(key), text: spokenText(text, model !== 'supertonic'), speed, model, sid });
   // Bumped on halt/stop so a line that was still being generated doesn't start playing afterwards.
   let generation = 0;
   return {

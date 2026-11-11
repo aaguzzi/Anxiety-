@@ -18,8 +18,9 @@ VOICE_MODEL = "en_GB-jenny_dioco-medium.onnx"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB_OUT = os.path.join(ROOT, "android/app/libs/sherpa-onnx-1.13.8.aar")
 VOICE_OUT = os.path.join(ROOT, "android/app/src/main/assets/voice")
-KOKORO_REPO = "csukuangfj/kokoro-int8-multi-lang-v1_0"
-KOKORO_FILES = ["model.int8.onnx", "voices.bin", "tokens.txt", "lexicon-us-en.txt"]
+# Full-precision model: the int8 one has audible static and is no faster.
+KOKORO_REPO = "csukuangfj/kokoro-multi-lang-v1_0"
+KOKORO_FILES = ["model.onnx", "voices.bin", "tokens.txt", "lexicon-us-en.txt"]
 KOKORO_OUT = os.path.join(ROOT, "android/app/src/main/assets/voice-kokoro")
 SUPERTONIC_REPO = "csukuangfj2/sherpa-onnx-supertonic-3-tts-int8-2026-05-11"
 SUPERTONIC_FILES = ["duration_predictor.int8.onnx", "text_encoder.int8.onnx", "vector_estimator.int8.onnx",

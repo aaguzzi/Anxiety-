@@ -118,7 +118,7 @@ public class NeuralVoicePlugin extends Plugin {
             model.setSupertonic(st);
         } else if ("kokoro".equals(which)) {
             OfflineTtsKokoroModelConfig kokoro = new OfflineTtsKokoroModelConfig();
-            kokoro.setModel(KOKORO_ASSETS + "/model.int8.onnx");
+            kokoro.setModel(KOKORO_ASSETS + "/model.onnx");
             kokoro.setVoices(KOKORO_ASSETS + "/voices.bin");
             kokoro.setTokens(KOKORO_ASSETS + "/tokens.txt");
             kokoro.setLexicon(KOKORO_ASSETS + "/lexicon-us-en.txt");
@@ -147,7 +147,7 @@ public class NeuralVoicePlugin extends Plugin {
     public void info(PluginCall call) {
         JSObject ret = new JSObject();
         ret.put("piper", bundled(ASSETS, "model.onnx"));
-        ret.put("kokoro", bundled(KOKORO_ASSETS, "model.int8.onnx") && bundled(ASSETS, "model.onnx"));
+        ret.put("kokoro", bundled(KOKORO_ASSETS, "model.onnx") && bundled(ASSETS, "model.onnx"));
         ret.put("supertonic", bundled(SUPERTONIC_ASSETS, "vocoder.int8.onnx"));
         ret.put("cores", cores());
         ret.put("ramMb", ramMb());
