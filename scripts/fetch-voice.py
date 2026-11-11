@@ -61,9 +61,12 @@ def main():
     print(f"pronunciation data ({len(data)} files) ...")
     for p in data:
         fetch(VOICE_REPO, p, os.path.join(VOICE_OUT, p))
-    print("extra voices (Kokoro) ...")
-    for name in KOKORO_FILES:
-        fetch(KOKORO_REPO, name, os.path.join(KOKORO_OUT, name))
+    # Kokoro is supported by the app but not bundled: its voices stress the last word of each
+    # sentence, which testers found unsuited to meditation. Pass --kokoro to include it.
+    if "--kokoro" in sys.argv:
+        print("extra voices (Kokoro) ...")
+        for name in KOKORO_FILES:
+            fetch(KOKORO_REPO, name, os.path.join(KOKORO_OUT, name))
     print("studio voices (Supertonic 3) ...")
     for name in SUPERTONIC_FILES:
         fetch(SUPERTONIC_REPO, name, os.path.join(SUPERTONIC_OUT, name))
