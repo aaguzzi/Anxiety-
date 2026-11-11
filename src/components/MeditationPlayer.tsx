@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { Meditation, Settings, VoiceBench } from '../types';
-import { chooseEngine, fallbackEngine, keepScreenAwake, VoiceEngine } from '../lib/voice';
+import { BackgroundSession, chooseEngine, fallbackEngine, keepScreenAwake, SessionState, VoiceEngine } from '../lib/voice';
 import { estimateSeconds, splitSentences } from '../lib/meditationScript';
 
 interface Props {
@@ -24,6 +24,8 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
   const pauseScale = settings.pauseScale;
 
   const engineRef = useRef<VoiceEngine | null>(null);
+  // Set while the phone itself is playing the meditation (natural voices), so it survives screen-off.
+  const backgroundRef = useRef<BackgroundSession | null>(null);
   const runRef = useRef(0);
   const statusRef = useRef<Status>('preparing');
   // Where playback is, so a pause in the silence after a line resumes with the rest of that silence
@@ -91,7 +93,45 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
     if (live()) show('done');
   }
 
+  function onBackgroundState(state: SessionState) {
+    if (!backgroundRef.current) return;
+    setIndex(Math.min(state.index, segments.length - 1));
+    if (state.status === 'stopped' || state.status === 'none') {
+      // Stopped from the notification.
+      if (statusRef.current !== 'done') onClose();
+    } else if (state.status === 'error') {
+      // The natural voice failed part-way: carry on from here with the phone's own voice.
+      backgroundRef.current = null;
+      engineRef.current = fallbackEngine(speed);
+      setVoiceName(engineRef.current.voice.label);
+      run(state.index);
+    } else {
+      show(state.status);
+    }
+  }
+
+  async function startInBackground(session: BackgroundSession) {
+    backgroundRef.current = session;
+    show('preparing');
+    await session.start(
+      meditation.title,
+      segments.map((s, i) => ({
+        key: lineId(i),
+        text: s.text,
+        pauseSeconds: s.pause * pauseScale * engineRef.current!.pauseStretch,
+      })),
+      onBackgroundState,
+    );
+  }
+
+  function playAgain() {
+    const session = engineRef.current?.background;
+    if (backgroundRef.current && session) startInBackground(session).catch(() => show('error'));
+    else run(0);
+  }
+
   function pause() {
+    if (backgroundRef.current) return backgroundRef.current.pause();
     if (statusRef.current !== 'playing') return;
     const { index: i, gapEndsAt } = posRef.current;
     resumeRef.current = gapEndsAt > 0
@@ -103,11 +143,13 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
   }
 
   function resume() {
+    if (backgroundRef.current) return backgroundRef.current.resume();
     const { index: i, delayMs } = resumeRef.current;
     run(i, delayMs);
   }
 
   function skip(by: number) {
+    if (backgroundRef.current) return backgroundRef.current.skip(by);
     const current = statusRef.current === 'paused' ? resumeRef.current.index : posRef.current.index;
     const target = Math.max(0, current + by);
     const token = ++runRef.current;
@@ -135,6 +177,16 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
       engineRef.current = engine;
       setVoiceName(engine.voice.label);
       setSlowStart(engine.slowToPrepare);
+      if (engine.background) {
+        try {
+          await startInBackground(engine.background);
+          return;
+        } catch {
+          // The playback service couldn't start: fall back to timing the lines from this screen.
+          backgroundRef.current = null;
+        }
+        if (cancelled) return;
+      }
       engine.preload(segments.map((s, i) => ({ key: lineId(i), text: s.text })));
       // Slower voices get a longer head start so the first minute isn't full of waits.
       const lead = engine.slowToPrepare ? 4 : 2;
@@ -143,11 +195,16 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
     });
     // The spoken lines are timed from the app, which Android suspends in the background.
     const listener = CapApp.addListener('appStateChange', state => {
-      if (!state.isActive) pause();
+      if (backgroundRef.current) {
+        if (state.isActive) backgroundRef.current.sync().then(onBackgroundState);
+      } else if (!state.isActive) {
+        pause();
+      }
     });
     return () => {
       cancelled = true;
       runRef.current++;
+      backgroundRef.current?.stop();
       engineRef.current?.stop();
       keepScreenAwake(false);
       listener.then(l => l.remove());
@@ -155,7 +212,8 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    keepScreenAwake(status === 'preparing' || status === 'playing');
+    // Background playback doesn't need the screen; in-app timing does.
+    keepScreenAwake(!backgroundRef.current && (status === 'preparing' || status === 'playing'));
   }, [status]);
 
   if (status === 'done' || status === 'error') {
@@ -169,7 +227,7 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
               Take a moment before you move on. This meditation is saved, so you can return to it any time.
             </div>
             <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
-            <button className="btn btn-ghost" onClick={() => run(0)}>Play again</button>
+            <button className="btn btn-ghost" onClick={playAgain}>Play again</button>
           </div>
         ) : (
           <div className="completion-screen">

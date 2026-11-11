@@ -1,5 +1,6 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor, PluginListenerHandle, registerPlugin } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { Settings, VoiceBench } from '../types';
 import { PRONUNCIATION_VERSION, spokenText } from './pronunciation';
 
@@ -13,6 +14,21 @@ interface NeuralVoicePlugin {
   prepare(options: { id: string; text: string; speed: number; model: NeuralModel; sid: number; steps: number }): Promise<{ cached: boolean }>;
   play(options: { id: string }): Promise<{ stopped: boolean }>;
   stop(options?: { cancelQueued: boolean }): Promise<void>;
+  startSession(options: {
+    title: string;
+    lines: { id: string; text: string; pauseMs: number }[];
+    model: NeuralModel;
+    sid: number;
+    speed: number;
+    steps: number;
+    lead: number;
+  }): Promise<void>;
+  pauseSession(): Promise<void>;
+  resumeSession(): Promise<void>;
+  skipSession(options: { by: number }): Promise<void>;
+  stopSession(): Promise<void>;
+  sessionState(): Promise<SessionState>;
+  addListener(event: 'sessionState', handler: (state: SessionState) => void): Promise<PluginListenerHandle>;
   clearCache(options?: { prefix: string }): Promise<void>;
   keepAwake(options: { on: boolean }): Promise<void>;
 }
@@ -92,6 +108,26 @@ export function voiceOption(id: string): VoiceOption {
 const MAX_RTF = 1.2;
 const MIN_RAM_MB = 2500;
 
+export interface SessionState {
+  status: 'preparing' | 'playing' | 'paused' | 'done' | 'error' | 'stopped' | 'none';
+  index: number;
+}
+
+/** A whole meditation played by the phone itself, so it carries on with the screen off. */
+export interface BackgroundSession {
+  start(
+    title: string,
+    lines: { key: string; text: string; pauseSeconds: number }[],
+    onState: (state: SessionState) => void,
+  ): Promise<void>;
+  pause(): void;
+  resume(): void;
+  skip(by: number): void;
+  /** Ask where playback is now, after the app was in the background. */
+  sync(): Promise<SessionState>;
+  stop(): Promise<void>;
+}
+
 export interface VoiceEngine {
   /** Which voice is actually speaking (never "auto"). */
   voice: VoiceOption;
@@ -99,6 +135,8 @@ export interface VoiceEngine {
   pauseStretch: number;
   /** True when lines take noticeably long to generate, so the player should buffer more first. */
   slowToPrepare: boolean;
+  /** Present for the natural voices: playback that doesn't depend on the app staying on screen. */
+  background?: BackgroundSession;
   /** Queue every line for generation up front (natural voices only). */
   preload(lines: { key: string; text: string }[]): void;
   /** Resolves once these lines can be spoken without a wait. */
@@ -128,8 +166,45 @@ function neuralEngine(voice: VoiceOption, speed: number, quality: 'best' | 'fast
     NeuralVoice.prepare({ id: fileId(key), text: spokenText(text, model !== 'supertonic'), speed: genSpeed, model, sid, steps });
   // Bumped on halt/stop so a line that was still being generated doesn't start playing afterwards.
   let generation = 0;
+  let stateListener: Promise<PluginListenerHandle> | null = null;
+  const background: BackgroundSession = {
+    async start(title, lines, onState) {
+      // The playback controls live in a notification; ask once if we may show it.
+      try {
+        const permission = await LocalNotifications.checkPermissions();
+        if (permission.display.startsWith('prompt')) await LocalNotifications.requestPermissions();
+      } catch {
+        // playback works without the notification
+      }
+      stateListener?.then(l => l.remove());
+      stateListener = NeuralVoice.addListener('sessionState', onState);
+      await NeuralVoice.startSession({
+        title,
+        lines: lines.map(l => ({
+          id: fileId(l.key),
+          text: spokenText(l.text, model !== 'supertonic'),
+          pauseMs: Math.round(l.pauseSeconds * 1000),
+        })),
+        model,
+        sid,
+        speed: genSpeed,
+        steps,
+        lead: model === 'kokoro' || steps > STEPS.fast ? 4 : 2,
+      });
+    },
+    pause: () => void NeuralVoice.pauseSession(),
+    resume: () => void NeuralVoice.resumeSession(),
+    skip: by => void NeuralVoice.skipSession({ by }),
+    sync: () => NeuralVoice.sessionState(),
+    async stop() {
+      stateListener?.then(l => l.remove());
+      stateListener = null;
+      await NeuralVoice.stopSession();
+    },
+  };
   return {
     voice,
+    background,
     pauseStretch: genSpeed / speed,
     slowToPrepare: model === 'kokoro' || steps > STEPS.fast,
     preload(lines) {
