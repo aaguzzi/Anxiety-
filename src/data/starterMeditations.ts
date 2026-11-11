@@ -62,7 +62,7 @@ export const starterMeditations: Meditation[] = [
     ['Take a slow breath in.', 4],
     ['And let it fall out of you, like a sigh.', 8],
     ['Bring your attention to your feet. Let them soften and grow warm.', 12],
-    ['Let that softness move up through your legs. Your calves. Your knees. Your thighs.', 15],
+    ['Let that softness move up through your legs, into your calves, your knees, and your thighs.', 15],
     ['Let your hips and your lower back sink into the surface beneath you.', 12],
     ['Notice your belly rising and falling. You do not have to breathe in any special way.', 15],
     ['Let your shoulders drop away from your ears.', 10],
