@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Settings } from '../types';
 import { applyReminder, remindersSupported, ReminderResult } from '../lib/reminders';
 import { formatTime12 } from '../lib/dates';
@@ -11,14 +11,19 @@ interface Props {
   settings: Settings;
   onChange: (update: (prev: Settings) => Settings) => void;
   onDeleteAll: () => void;
+  focus?: 'meditation' | null;
   onClose: () => void;
 }
 
-export default function SettingsView({ settings, onChange, onDeleteAll, onClose }: Props) {
+export default function SettingsView({ settings, onChange, onDeleteAll, focus, onClose }: Props) {
   const [status, setStatus] = useState<ReminderResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const supported = remindersSupported();
+
+  useEffect(() => {
+    if (focus === 'meditation') document.getElementById('meditation-settings')?.scrollIntoView();
+  }, [focus]);
 
   async function updateReminder(enabled: boolean, time: string) {
     setBusy(true);

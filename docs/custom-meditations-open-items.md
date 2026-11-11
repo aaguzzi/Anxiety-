@@ -27,3 +27,11 @@ skipped and must be resolved before the feature ships to other people.
   confirm its licence allows commercial distribution, or switch to a voice with a clear licence.
 - **espeak-ng** (pronunciation data used by the voice library) is GPL-3.0; confirm what that means for
   distributing it inside the app.
+
+## Known functional limits (from the red-team review)
+- **Playback stops when the screen locks or the app is in the background.** Lines are timed from the
+  app's web layer, which Android suspends. The screen is kept on while playing and playback pauses when
+  the app is backgrounded. Proper background playback needs a native foreground service and media session.
+- **The native voice plugin has only been compiled, not run on a device here.** If it fails at runtime the
+  player falls back to the phone voice.
+- **Progress bar** moves per line, so it stands still during long silences.

@@ -6,6 +6,8 @@ import { Tab, Exercise, CheckinEntry, PracticeHistory, Settings, Meditation } fr
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { localDateKey } from './lib/dates';
 import { cancelReminder } from './lib/reminders';
+import { clearVoiceCache } from './lib/voice';
+import { generateMeditation, ScriptError } from './lib/meditationScript';
 import Navigation from './components/Navigation';
 import Home from './components/Home';
 import CheckIn from './components/CheckIn';
@@ -42,6 +44,9 @@ export default function App() {
   const [settings, setSettings] = useLocalStorage<Settings>('ac-settings', defaultSettings);
   const [meditations, setMeditations] = useLocalStorage<Meditation[]>('ac-meditations', []);
   const [activeMeditation, setActiveMeditation] = useState<Meditation | null>(null);
+  const [writing, setWriting] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  const [settingsFocus, setSettingsFocus] = useState<'meditation' | null>(null);
+  const screenRef = useRef<HTMLDivElement>(null);
 
   const navRef = useRef({ tab, activeExercise, overlay, activeMeditation });
   navRef.current = { tab, activeExercise, overlay, activeMeditation };
@@ -68,6 +73,29 @@ export default function App() {
     });
     return () => { listener.then(l => l.remove()); };
   }, []);
+
+  useEffect(() => {
+    screenRef.current?.scrollTo(0, 0);
+  }, [tab]);
+
+  // Lives here, not in the Meditate tab, so leaving the tab can't lose (or double-charge for) a script in flight.
+  const createMeditation = useCallback(async (prompt: string, minutes: number): Promise<boolean> => {
+    if (writing.busy) return false;
+    setWriting({ busy: true, error: null });
+    try {
+      const meditation = await generateMeditation(settings.anthropicKey.trim(), prompt, minutes);
+      setMeditations(prev => [...prev, meditation]);
+      setWriting({ busy: false, error: null });
+      const nav = navRef.current;
+      if (nav.tab === 'meditate' && nav.overlay === 'none' && !nav.activeExercise && !nav.activeMeditation) {
+        setActiveMeditation(meditation);
+      }
+      return true;
+    } catch (e) {
+      setWriting({ busy: false, error: e instanceof ScriptError ? e.message : 'Something went wrong. Try again.' });
+      return false;
+    }
+  }, [writing.busy, settings.anthropicKey, setMeditations]);
 
   const today = localDateKey();
   const completedToday = history[today] ?? [];
@@ -97,13 +125,14 @@ export default function App() {
 
   const deleteAllData = useCallback(async () => {
     await cancelReminder();
+    clearVoiceCache();
     STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
     window.location.reload();
   }, []);
 
   return (
     <div className="app">
-      <div className="screen">
+      <div className="screen" ref={screenRef}>
         {tab === 'home' && (
           <Home
             completedToday={completedToday}
@@ -127,12 +156,14 @@ export default function App() {
         )}
         {tab === 'meditate' && (
           <Meditate
-            apiKey={settings.anthropicKey}
+            hasKey={settings.anthropicKey.trim().length > 0}
             meditations={meditations}
-            onCreated={m => { setMeditations(prev => [...prev, m]); setActiveMeditation(m); }}
+            busy={writing.busy}
+            error={writing.error}
+            onCreate={createMeditation}
             onPlay={setActiveMeditation}
-            onDelete={id => setMeditations(prev => prev.filter(m => m.id !== id))}
-            onOpenSettings={() => setOverlay('settings')}
+            onDelete={id => { clearVoiceCache(`${id}-`); setMeditations(prev => prev.filter(m => m.id !== id)); }}
+            onOpenSettings={() => { setSettingsFocus('meditation'); setOverlay('settings'); }}
           />
         )}
         {tab === 'toolbox' && (
@@ -183,7 +214,8 @@ export default function App() {
           settings={settings}
           onChange={setSettings}
           onDeleteAll={deleteAllData}
-          onClose={() => setOverlay('none')}
+          focus={settingsFocus}
+          onClose={() => { setSettingsFocus(null); setOverlay('none'); }}
         />
       )}
       {overlay === 'history' && (

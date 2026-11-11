@@ -4,7 +4,10 @@ import android.app.ActivityManager;
 import android.content.Context;
 import android.content.res.AssetManager;
 import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.os.Build;
 import android.view.WindowManager;
 
 import com.getcapacitor.JSObject;
@@ -39,6 +42,7 @@ public class NeuralVoicePlugin extends Plugin {
     private OfflineTts tts;
     private MediaPlayer player;
     private PluginCall playCall;
+    private AudioFocusRequest focusRequest;
 
     private boolean modelBundled() {
         try {
@@ -156,15 +160,22 @@ public class NeuralVoicePlugin extends Plugin {
                 return;
             }
             try {
-                long start = System.nanoTime();
+                File out = segmentFile(id);
+                JSObject ret = new JSObject();
+                // Lines are generated once per meditation and reused on replay.
+                if (out.length() > 0) {
+                    ret.put("cached", true);
+                    call.resolve(ret);
+                    return;
+                }
                 GeneratedAudio audio = engine().generate(text, 0, speed);
-                if (audio.getSamples().length == 0 || !audio.save(segmentFile(id).getAbsolutePath())) {
+                File tmp = new File(out.getPath() + ".part");
+                if (audio.getSamples().length == 0 || !audio.save(tmp.getAbsolutePath()) || !tmp.renameTo(out)) {
+                    tmp.delete();
                     call.reject("Could not generate speech");
                     return;
                 }
-                JSObject ret = new JSObject();
-                ret.put("durationMs", Math.round(audio.getSamples().length * 1000.0 / audio.getSampleRate()));
-                ret.put("genMs", Math.round((System.nanoTime() - start) / 1e6));
+                ret.put("cached", false);
                 call.resolve(ret);
             } catch (Throwable e) {
                 call.reject("Could not generate speech: " + e.getMessage());
@@ -182,8 +193,8 @@ public class NeuralVoicePlugin extends Plugin {
         File file = segmentFile(id);
         getActivity().runOnUiThread(() -> {
             finishPlayback(true);
+            MediaPlayer mp = new MediaPlayer();
             try {
-                MediaPlayer mp = new MediaPlayer();
                 mp.setAudioAttributes(new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
@@ -198,14 +209,34 @@ public class NeuralVoicePlugin extends Plugin {
                     return true;
                 });
                 mp.prepare();
+                requestFocus();
                 player = mp;
                 playCall = call;
                 mp.start();
             } catch (Throwable e) {
-                releasePlayer();
+                try { mp.release(); } catch (Throwable ignored) {}
+                player = null;
                 call.reject("Playback failed: " + e.getMessage());
             }
         });
+    }
+
+    // Ask other apps (music, podcasts) to pause while the meditation speaks.
+    private void requestFocus() {
+        if (Build.VERSION.SDK_INT < 26) return;
+        AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+        if (focusRequest == null) {
+            focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setOnAudioFocusChangeListener(change -> {})
+                .build();
+        }
+        am.requestAudioFocus(focusRequest);
+    }
+
+    private void abandonFocus() {
+        if (focusRequest == null || Build.VERSION.SDK_INT < 26) return;
+        AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+        am.abandonAudioFocusRequest(focusRequest);
     }
 
     private void releasePlayer() {
@@ -232,6 +263,22 @@ public class NeuralVoicePlugin extends Plugin {
         if (call.getBoolean("cancelQueued", true)) epoch.incrementAndGet();
         getActivity().runOnUiThread(() -> {
             finishPlayback(true);
+            abandonFocus();
+            call.resolve();
+        });
+    }
+
+    /** Deletes generated speech whose id starts with the prefix (all of it when the prefix is empty). */
+    @PluginMethod
+    public void clearCache(PluginCall call) {
+        String prefix = "seg-" + call.getString("prefix", "").replaceAll("[^A-Za-z0-9_-]", "");
+        worker.execute(() -> {
+            File[] files = new File(getContext().getCacheDir(), "voice").listFiles();
+            if (files != null) {
+                for (File f : files) {
+                    if (f.getName().startsWith(prefix)) f.delete();
+                }
+            }
             call.resolve();
         });
     }

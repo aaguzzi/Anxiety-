@@ -5,9 +5,10 @@ import { VoiceBench, VoiceChoice } from '../types';
 interface NeuralVoicePlugin {
   info(): Promise<{ available: boolean; cores: number; ramMb: number }>;
   benchmark(): Promise<VoiceBench>;
-  prepare(options: { id: string; text: string; speed: number }): Promise<{ durationMs: number; genMs: number }>;
+  prepare(options: { id: string; text: string; speed: number }): Promise<{ cached: boolean }>;
   play(options: { id: string }): Promise<{ stopped: boolean }>;
   stop(options?: { cancelQueued: boolean }): Promise<void>;
+  clearCache(options?: { prefix: string }): Promise<void>;
   keepAwake(options: { on: boolean }): Promise<void>;
 }
 
@@ -21,16 +22,18 @@ export const VOICE_LABEL: Record<VoiceKind, string> = {
 };
 
 const SPEED = 0.85;
-// Generating faster than this many seconds of work per second of speech keeps ahead of playback,
-// because roughly half of a meditation is silence.
-const MAX_RTF = 2;
+// Seconds of work per second of speech. About half of a meditation is silence, so a device a little
+// slower than real time still keeps ahead once the first lines are ready.
+const MAX_RTF = 1.2;
 const MIN_RAM_MB = 2500;
 
 export interface VoiceEngine {
   kind: VoiceKind;
-  /** Queue every line for generation up front (neural only; resolves immediately otherwise). */
+  /** Queue every line for generation up front (neural only). */
   preload(lines: { id: string; text: string }[]): void;
-  /** Speak one line; resolves when it has finished or was stopped. */
+  /** Resolves once these lines can be spoken without a wait. */
+  whenReady(ids: string[]): Promise<void>;
+  /** Speak one line; resolves when it has finished or was halted, rejects if the voice can't speak. */
   speak(id: string, text: string): Promise<void>;
   /** Silence the current line but keep generated speech, so playback can resume. */
   halt(): Promise<void>;
@@ -51,6 +54,9 @@ function neuralEngine(): VoiceEngine {
         ready.set(id, p);
       }
     },
+    async whenReady(ids) {
+      await Promise.all(ids.map(id => ready.get(id)?.catch(() => {})));
+    },
     async speak(id, text) {
       const started = generation;
       await (ready.get(id) ?? NeuralVoice.prepare({ id, text, speed: SPEED }));
@@ -69,29 +75,53 @@ function neuralEngine(): VoiceEngine {
   };
 }
 
+let systemLang: string | undefined | null = null;
+
+// Not every phone has a US English voice installed; fall back to the phone's own language.
+async function resolveSystemLang(): Promise<string | undefined> {
+  if (systemLang !== null) return systemLang;
+  systemLang = undefined;
+  for (const lang of ['en-US', 'en-GB', navigator.language]) {
+    try {
+      if ((await TextToSpeech.isLanguageSupported({ lang })).supported) {
+        systemLang = lang;
+        break;
+      }
+    } catch {
+      break;
+    }
+  }
+  return systemLang;
+}
+
 function systemEngine(): VoiceEngine {
-  let cancel: (() => void) | null = null;
+  let finish: (() => void) | null = null;
   return {
     kind: 'system',
     preload() {},
-    speak(_id, text) {
+    async whenReady() {},
+    async speak(_id, text) {
+      const lang = await resolveSystemLang();
       // Some phones never report that speech finished; don't let one line stall the whole session.
       const limitMs = (text.split(/\s+/).length / 1.5 + 6) * 1000;
-      return new Promise<void>(resolve => {
-        const timer = setTimeout(done, limitMs);
-        function done() {
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const timer = setTimeout(() => settle(), limitMs);
+        function settle(error?: unknown) {
+          if (settled) return;
+          settled = true;
           clearTimeout(timer);
-          cancel = null;
-          resolve();
+          finish = null;
+          if (error) reject(error);
+          else resolve();
         }
-        cancel = done;
-        TextToSpeech.speak({ text, lang: 'en-US', rate: SPEED, pitch: 0.95, category: 'playback' })
-          .catch(() => {})
-          .then(done);
+        finish = () => settle();
+        TextToSpeech.speak({ text, lang, rate: SPEED, pitch: 0.95, category: 'playback' })
+          .then(() => settle(), e => settle(e ?? new Error('speech failed')));
       });
     },
     async halt() {
-      cancel?.();
+      finish?.();
       await TextToSpeech.stop().catch(() => {});
     },
     async stop() {
@@ -118,8 +148,12 @@ export async function runBenchmark(): Promise<VoiceBench | null> {
   }
 }
 
-export function benchIsFastEnough(bench: VoiceBench | null): boolean {
-  return !!bench && bench.rtf <= MAX_RTF && bench.ramMb >= MIN_RAM_MB;
+export type BenchVerdict = 'untested' | 'ok' | 'slow' | 'low-memory';
+
+export function benchVerdict(bench: VoiceBench | null): BenchVerdict {
+  if (!bench) return 'untested';
+  if (bench.ramMb < MIN_RAM_MB) return 'low-memory';
+  return bench.rtf <= MAX_RTF ? 'ok' : 'slow';
 }
 
 /**
@@ -139,7 +173,7 @@ export async function chooseEngine(
     bench = await runBenchmark();
     if (bench) saveBench(bench);
   }
-  return benchIsFastEnough(bench) ? neuralEngine() : systemEngine();
+  return benchVerdict(bench) === 'ok' ? neuralEngine() : systemEngine();
 }
 
 export function fallbackEngine(): VoiceEngine {
@@ -148,4 +182,9 @@ export function fallbackEngine(): VoiceEngine {
 
 export function keepScreenAwake(on: boolean): void {
   if (Capacitor.isNativePlatform()) NeuralVoice.keepAwake({ on }).catch(() => {});
+}
+
+/** Removes generated speech files: for one meditation (by id prefix) or all of them. */
+export function clearVoiceCache(prefix = ''): void {
+  if (Capacitor.isNativePlatform()) NeuralVoice.clearCache({ prefix }).catch(() => {});
 }

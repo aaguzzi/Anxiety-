@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Meditation } from '../types';
-import { estimateSeconds, generateMeditation, ScriptError } from '../lib/meditationScript';
+import { estimateSeconds } from '../lib/meditationScript';
+import { starterMeditations } from '../data/starterMeditations';
 
 const IDEAS = [
   'Winding down before sleep',
@@ -13,36 +14,36 @@ const IDEAS = [
 const LENGTHS = [3, 5, 10];
 
 interface Props {
-  apiKey: string;
+  hasKey: boolean;
   meditations: Meditation[];
-  onCreated: (m: Meditation) => void;
+  busy: boolean;
+  error: string | null;
+  onCreate: (prompt: string, minutes: number) => Promise<boolean>;
   onPlay: (m: Meditation) => void;
   onDelete: (id: string) => void;
   onOpenSettings: () => void;
 }
 
-export default function Meditate({ apiKey, meditations, onCreated, onPlay, onDelete, onOpenSettings }: Props) {
+function minutesOf(m: Meditation): number {
+  return Math.max(1, Math.round(estimateSeconds(m.segments) / 60));
+}
+
+function PlayIcon() {
+  return (
+    <span className="saved-med-play" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z" /></svg>
+    </span>
+  );
+}
+
+export default function Meditate({ hasKey, meditations, busy, error, onCreate, onPlay, onDelete, onOpenSettings }: Props) {
   const [prompt, setPrompt] = useState('');
   const [minutes, setMinutes] = useState(5);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-
-  const hasKey = apiKey.trim().length > 0;
 
   async function create() {
     if (!prompt.trim() || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const meditation = await generateMeditation(apiKey.trim(), prompt, minutes);
-      onCreated(meditation);
-      setPrompt('');
-    } catch (e) {
-      setError(e instanceof ScriptError ? e.message : 'Something went wrong. Try again.');
-    } finally {
-      setBusy(false);
-    }
+    if (await onCreate(prompt, minutes)) setPrompt('');
   }
 
   const saved = [...meditations].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -51,16 +52,33 @@ export default function Meditate({ apiKey, meditations, onCreated, onPlay, onDel
     <div>
       <div className="toolbox-header">
         <div className="toolbox-title">Meditate</div>
-        <div className="toolbox-sub">A guided meditation written for this moment</div>
+        <div className="toolbox-sub">Guided meditations, read aloud on your phone</div>
       </div>
 
       <div className="home-section">
+        <div className="home-section-title">Ready to play</div>
+        <div className="quick-exercises">
+          {starterMeditations.map(m => (
+            <div key={m.id} className="card saved-med">
+              <button className="saved-med-main" onClick={() => onPlay(m)}>
+                <PlayIcon />
+                <span className="saved-med-text">
+                  <span className="exercise-card-title">{m.title}</span>
+                  <span className="settings-row-sub">{minutesOf(m)} min · {m.prompt}</span>
+                </span>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="home-section">
+        <div className="home-section-title">Make your own</div>
         {!hasKey ? (
           <div className="card settings-card">
-            <div className="settings-row-title">One-time setup</div>
             <p className="settings-row-sub mb-4">
-              Custom meditations are written by Claude. Add your Anthropic API key in Settings to turn this on.
-              The voice itself runs on your phone.
+              Describe what's on your mind and get a meditation written for it. This uses Claude, Anthropic's AI,
+              and needs your own Anthropic API key (a paid developer account). The voice itself runs on your phone.
             </p>
             <button className="btn btn-primary w-full" onClick={onOpenSettings}>Add API key</button>
           </div>
@@ -97,12 +115,16 @@ export default function Meditate({ apiKey, meditations, onCreated, onPlay, onDel
               ))}
             </div>
 
-            {error && <p className="form-error" role="alert">{error}</p>}
+            {error && !busy && <p className="form-error" role="alert">{error}</p>}
 
-            <button className="btn btn-primary w-full mt-4" disabled={!prompt.trim() || busy} onClick={create}>
+            <button className="btn btn-primary w-full mt-4" disabled={busy || !prompt.trim()} onClick={create}>
               {busy ? 'Writing your meditation…' : 'Create meditation'}
             </button>
-            {busy && <p className="caption-text mt-2 text-center">This usually takes 10 to 30 seconds.</p>}
+            {busy && (
+              <p className="caption-text mt-2 text-center">
+                This usually takes 10 to 30 seconds. It will be saved below even if you leave this screen.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -114,13 +136,11 @@ export default function Meditate({ apiKey, meditations, onCreated, onPlay, onDel
             {saved.map(m => (
               <div key={m.id} className="card saved-med">
                 <button className="saved-med-main" onClick={() => onPlay(m)}>
-                  <span className="saved-med-play" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z" /></svg>
-                  </span>
+                  <PlayIcon />
                   <span className="saved-med-text">
                     <span className="exercise-card-title">{m.title}</span>
                     <span className="settings-row-sub">
-                      {Math.max(1, Math.round(estimateSeconds(m.segments) / 60))} min ·{' '}
+                      {minutesOf(m)} min ·{' '}
                       {new Date(m.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {m.prompt}
                     </span>
                   </span>

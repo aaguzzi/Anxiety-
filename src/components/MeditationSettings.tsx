@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Settings, VoiceChoice } from '../types';
-import { benchIsFastEnough, chooseEngine, neuralAvailable, runBenchmark, VoiceEngine, VOICE_LABEL } from '../lib/voice';
+import { benchVerdict, chooseEngine, neuralAvailable, runBenchmark, VoiceEngine, VOICE_LABEL } from '../lib/voice';
 
 const CHOICES: { value: VoiceChoice; label: string }[] = [
   { value: 'auto', label: 'Automatic' },
@@ -55,14 +55,15 @@ export default function MeditationSettings({ settings, onChange }: Props) {
   }
 
   const bench = settings.voiceBench;
-  const speedText = !bench
-    ? "This device's speed is measured the first time the natural voice is used."
-    : benchIsFastEnough(bench)
-      ? `This device generates the natural voice ${(1 / bench.rtf).toFixed(1)}× faster than it's spoken, so Automatic uses it.`
-      : `This device generates the natural voice too slowly (${(1 / bench.rtf).toFixed(1)}× speaking speed), so Automatic uses the phone voice.`;
+  const speedText = {
+    untested: "This device's speed is measured the first time the natural voice is used.",
+    ok: `This device generates the natural voice at ${bench ? (1 / bench.rtf).toFixed(1) : ''}× speaking speed, so Automatic uses it.`,
+    slow: `This device generates the natural voice at only ${bench ? (1 / bench.rtf).toFixed(1) : ''}× speaking speed, so Automatic uses the phone voice.`,
+    'low-memory': "This device doesn't have enough memory for the natural voice, so Automatic uses the phone voice.",
+  }[benchVerdict(bench)];
 
   return (
-    <div className="settings-section">
+    <div className="settings-section" id="meditation-settings">
       <div className="section-label">Custom meditations</div>
       <div className="card settings-card">
         <label className="settings-row-title" htmlFor="api-key">Anthropic API key</label>

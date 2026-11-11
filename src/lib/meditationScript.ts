@@ -19,31 +19,38 @@ Timing: the voice speaks about ${WORDS_PER_SECOND} words per second. Spoken time
 
 export class ScriptError extends Error {}
 
+const PAUSE = /[[(]\s*pause[:\s]*(\d+(?:\.\d+)?)?\s*(?:s|secs?|seconds?)?\.?\s*[\])]/i;
+const MAX_PAUSE = 60;
+
 export function parseScript(raw: string): { title: string; segments: MeditationSegment[] } {
   let title = 'Custom meditation';
   const segments: MeditationSegment[] = [];
 
   for (const line of raw.split('\n')) {
-    const trimmed = line.trim();
+    // Models sometimes decorate lines with markdown despite instructions; the voice would read it aloud.
+    const trimmed = line.replace(/[*_#`>]/g, '').trim();
     if (!trimmed) continue;
     const titleMatch = trimmed.match(/^TITLE:\s*(.+)$/i);
-    if (titleMatch && segments.length === 0) {
+    if (titleMatch) {
+      // Anything before the title is preamble ("Here is your script:"), not part of the meditation.
       title = titleMatch[1].trim();
+      segments.length = 0;
       continue;
     }
-    // Pauses normally sit on their own line, but tolerate them inline too.
-    for (const part of trimmed.split(/(\[pause\s+\d+(?:\.\d+)?\s*\])/i)) {
-      const pause = part.match(/^\[pause\s+(\d+(?:\.\d+)?)\s*\]$/i);
+    for (const part of trimmed.split(new RegExp(`(${PAUSE.source})`, 'i'))) {
+      if (part === undefined) continue;
+      const pause = part.match(new RegExp(`^${PAUSE.source}$`, 'i'));
       if (pause) {
-        const seconds = Math.min(60, Number(pause[1]));
+        const seconds = Number(pause[1] ?? 4);
         if (segments.length > 0) {
           const last = segments[segments.length - 1];
-          last.pause = last.pause === DEFAULT_GAP ? seconds : last.pause + seconds;
+          last.pause = Math.min(MAX_PAUSE, last.pause === DEFAULT_GAP ? seconds : last.pause + seconds);
         }
-      } else {
-        const text = part.replace(/[*_#`]/g, '').trim();
-        if (text) segments.push({ text, pause: DEFAULT_GAP });
+        continue;
       }
+      // Drop any other stage direction in brackets, and lines with nothing to say (e.g. "---").
+      const text = part.replace(/\[[^\]]*\]/g, '').trim();
+      if (/\p{L}/u.test(text)) segments.push({ text, pause: DEFAULT_GAP });
     }
   }
   return { title, segments };
@@ -63,7 +70,7 @@ export async function generateMeditation(apiKey: string, prompt: string, minutes
   try {
     response = await client.beta.messages.create({
       model: MODEL,
-      max_tokens: 8000,
+      max_tokens: 16000,
       output_config: { effort: 'low' },
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
@@ -83,12 +90,18 @@ export async function generateMeditation(apiKey: string, prompt: string, minutes
     if (error instanceof Anthropic.APIConnectionError) {
       throw new ScriptError("Couldn't reach the service. Check your internet connection and try again.");
     }
+    if (error instanceof Anthropic.BadRequestError) {
+      throw new ScriptError(`The service rejected the request: ${error.message.slice(0, 160)}`);
+    }
     if (error instanceof Anthropic.APIError) {
       throw new ScriptError(`The service returned an error (${error.status ?? 'unknown'}). Try again.`);
     }
     throw error;
   }
 
+  if (response.stop_reason === 'max_tokens') {
+    throw new ScriptError('The meditation came back incomplete. Try again, or choose a shorter length.');
+  }
   if (response.stop_reason === 'refusal') {
     throw new ScriptError("A meditation couldn't be written for that request. Try describing it differently.");
   }

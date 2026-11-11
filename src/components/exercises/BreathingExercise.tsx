@@ -44,6 +44,7 @@ function BreathingEngine({ config, onComplete }: { config: CycleConfig; onComple
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
   const [skipHolds, setSkipHolds] = useState(false);
+  const [finished, setFinished] = useState(false);
   const [phaseIdx, setPhaseIdx] = useState(0);
   const [cycle, setCycle] = useState(1);
   const [count, setCount] = useState(0);
@@ -70,7 +71,7 @@ function BreathingEngine({ config, onComplete }: { config: CycleConfig; onComple
       setCount(phases[0].duration);
     } else {
       setStarted(false);
-      onComplete();
+      setFinished(true);
     }
   }, [count]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -85,6 +86,20 @@ function BreathingEngine({ config, onComplete }: { config: CycleConfig; onComple
   function stop() {
     setStarted(false);
     setPaused(false);
+  }
+
+  if (finished) {
+    return (
+      <div className="completion-screen">
+        <span className="completion-icon">🌬️</span>
+        <div className="completion-title">Nicely done.</div>
+        <div className="completion-msg">
+          Notice how your body feels now, whatever that is. You can come back to this breath any time.
+        </div>
+        <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
+        <button className="btn btn-ghost" onClick={() => { setFinished(false); begin(); }}>Go again</button>
+      </div>
+    );
   }
 
   return (
