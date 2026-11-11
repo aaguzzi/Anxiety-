@@ -55,11 +55,14 @@ export interface Settings {
   contactPhone: string;
   onboarded: boolean;
   anthropicKey: string;
-  voiceChoice: VoiceChoice;
+  /** A voice id from VOICES in lib/voice.ts. */
+  voiceChoice: string;
   voiceBench: VoiceBench | null;
+  /** 1 is the voice's natural pace; lower is slower. */
+  speechSpeed: number;
+  /** Multiplier applied to every silence in a meditation. */
+  pauseScale: number;
 }
-
-export type VoiceChoice = 'auto' | 'neural' | 'system';
 
 export interface VoiceBench {
   rtf: number;

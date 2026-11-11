@@ -21,7 +21,7 @@ interface Props {
   onCreate: (prompt: string, minutes: number) => Promise<boolean>;
   onPlay: (m: Meditation) => void;
   onDelete: (id: string) => void;
-  onOpenSettings: () => void;
+  onOpenSettings: (target: 'voice' | 'key') => void;
 }
 
 function minutesOf(m: Meditation): number {
@@ -53,6 +53,7 @@ export default function Meditate({ hasKey, meditations, busy, error, onCreate, o
       <div className="toolbox-header">
         <div className="toolbox-title">Meditate</div>
         <div className="toolbox-sub">Guided meditations, read aloud on your phone</div>
+        <button className="btn btn-outline voice-pace-btn" onClick={() => onOpenSettings('voice')}>Voice, speed and pauses</button>
       </div>
 
       <div className="home-section">
@@ -80,7 +81,7 @@ export default function Meditate({ hasKey, meditations, busy, error, onCreate, o
               Describe what's on your mind and get a meditation written for it. This uses Claude, Anthropic's AI,
               and needs your own Anthropic API key (a paid developer account). The voice itself runs on your phone.
             </p>
-            <button className="btn btn-primary w-full" onClick={onOpenSettings}>Add API key</button>
+            <button className="btn btn-primary w-full" onClick={() => onOpenSettings('key')}>Add API key</button>
           </div>
         ) : (
           <div className="card settings-card">

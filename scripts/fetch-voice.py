@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download the on-device neural voice (sherpa-onnx library + Piper model) into the Android project.
+"""Download the on-device neural voice (sherpa-onnx library, a Piper voice, and the multi-speaker Kokoro model) into the Android project.
 
 These binaries are too large for git, so the Android build needs this run once:
     python3 scripts/fetch-voice.py
@@ -19,6 +19,9 @@ VOICE_MODEL = "en_GB-jenny_dioco-medium.onnx"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB_OUT = os.path.join(ROOT, "android/app/libs/sherpa-onnx.aar")
 VOICE_OUT = os.path.join(ROOT, "android/app/src/main/assets/voice")
+KOKORO_REPO = "csukuangfj/kokoro-int8-multi-lang-v1_0"
+KOKORO_FILES = ["model.int8.onnx", "voices.bin", "tokens.txt", "lexicon-us-en.txt"]
+KOKORO_OUT = os.path.join(ROOT, "android/app/src/main/assets/voice-kokoro")
 
 
 def fetch(repo, path, dest):
@@ -51,6 +54,9 @@ def main():
     print(f"pronunciation data ({len(data)} files) ...")
     for p in data:
         fetch(VOICE_REPO, p, os.path.join(VOICE_OUT, p))
+    print("extra voices (Kokoro) ...")
+    for name in KOKORO_FILES:
+        fetch(KOKORO_REPO, name, os.path.join(KOKORO_OUT, name))
     print("done")
 
 

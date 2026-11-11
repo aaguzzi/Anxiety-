@@ -56,9 +56,11 @@ export function parseScript(raw: string): { title: string; segments: MeditationS
   return { title, segments };
 }
 
-export function estimateSeconds(segments: MeditationSegment[]): number {
+/** Rough playing time. `speed` 0.85 is the pace the scripts are written for. */
+export function estimateSeconds(segments: MeditationSegment[], speed = 0.85, pauseScale = 1): number {
+  const wordsPerSecond = WORDS_PER_SECOND * (speed / 0.85);
   return Math.round(
-    segments.reduce((sum, s) => sum + s.text.split(/\s+/).length / WORDS_PER_SECOND + s.pause, 0),
+    segments.reduce((sum, s) => sum + s.text.split(/\s+/).length / wordsPerSecond + s.pause * pauseScale, 0),
   );
 }
 

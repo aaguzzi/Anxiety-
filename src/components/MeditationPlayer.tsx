@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { Meditation, Settings, VoiceBench } from '../types';
-import { chooseEngine, fallbackEngine, keepScreenAwake, VoiceEngine, VoiceKind, VOICE_LABEL } from '../lib/voice';
+import { chooseEngine, fallbackEngine, keepScreenAwake, VoiceEngine } from '../lib/voice';
 import { estimateSeconds } from '../lib/meditationScript';
 
 interface Props {
@@ -18,7 +18,10 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
   const { segments } = meditation;
   const [status, setStatus] = useState<Status>('preparing');
   const [index, setIndex] = useState(0);
-  const [voice, setVoice] = useState<VoiceKind | null>(null);
+  const [voiceName, setVoiceName] = useState<string | null>(null);
+  const [slowStart, setSlowStart] = useState(false);
+  const speed = settings.speechSpeed;
+  const pauseScale = settings.pauseScale;
 
   const engineRef = useRef<VoiceEngine | null>(null);
   const runRef = useRef(0);
@@ -40,10 +43,10 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
     let t = 0;
     segments.forEach(s => {
       starts.push(t);
-      t += estimateSeconds([s]);
+      t += estimateSeconds([s], speed, pauseScale);
     });
     return { totalSeconds: t, startsAt: starts };
-  }, [segments]);
+  }, [segments, speed, pauseScale]);
 
   async function run(from: number, delayMs = 0) {
     const token = ++runRef.current;
@@ -60,19 +63,20 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
       if (!live()) return;
       posRef.current = { index: i, gapEndsAt: 0 };
       setIndex(i);
-      const { text, pause } = segments[i];
+      const text = segments[i].text;
+      const pause = segments[i].pause * pauseScale;
       try {
         await engineRef.current!.speak(lineId(i), text);
       } catch {
         if (!live()) return;
-        if (engineRef.current!.kind === 'system') {
+        if (engineRef.current!.voice.id === 'system') {
           show('error');
           return;
         }
         // The natural voice failed on this device: carry on with the phone's own voice.
         await engineRef.current!.stop();
-        engineRef.current = fallbackEngine();
-        setVoice('system');
+        engineRef.current = fallbackEngine(speed);
+        setVoiceName(engineRef.current.voice.label);
         try {
           await engineRef.current.speak(lineId(i), text);
         } catch {
@@ -126,12 +130,15 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
 
   useEffect(() => {
     let cancelled = false;
-    chooseEngine(settings.voiceChoice, settings.voiceBench, onSaveBench).then(async engine => {
+    chooseEngine(settings, onSaveBench).then(async engine => {
       if (cancelled) return;
       engineRef.current = engine;
-      setVoice(engine.kind);
-      engine.preload(segments.map((s, i) => ({ id: lineId(i), text: s.text })));
-      await engine.whenReady([lineId(0), lineId(1)]);
+      setVoiceName(engine.voice.label);
+      setSlowStart(engine.slowToPrepare);
+      engine.preload(segments.map((s, i) => ({ key: lineId(i), text: s.text })));
+      // Slower voices get a longer head start so the first minute isn't full of waits.
+      const lead = engine.slowToPrepare ? 4 : 2;
+      await engine.whenReady(segments.slice(0, lead).map((_, i) => lineId(i)));
       if (!cancelled) run(0);
     });
     // The spoken lines are timed from the app, which Android suspends in the background.
@@ -190,7 +197,7 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
               <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
             </svg>
           </button>
-          {voice && <span className="badge badge-duration">{VOICE_LABEL[voice]}</span>}
+          {voiceName && <span className="badge badge-duration">{voiceName}</span>}
         </div>
 
         <div className="player-body">
@@ -200,7 +207,11 @@ export default function MeditationPlayer({ meditation, settings, onSaveBench, on
 
           <div className="player-caption" aria-live="polite">
             {status === 'preparing' ? (
-              <span className="player-status">Preparing the voice…</span>
+              <span className="player-status">
+                {slowStart
+                  ? 'Preparing the voice… This one takes up to a minute the first time; replays start straight away.'
+                  : 'Preparing the voice…'}
+              </span>
             ) : (
               <span key={index}>{segments[index].text}</span>
             )}

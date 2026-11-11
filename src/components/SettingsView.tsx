@@ -11,7 +11,7 @@ interface Props {
   settings: Settings;
   onChange: (update: (prev: Settings) => Settings) => void;
   onDeleteAll: () => void;
-  focus?: 'meditation' | null;
+  focus?: 'voice' | 'key' | null;
   onClose: () => void;
 }
 
@@ -22,7 +22,7 @@ export default function SettingsView({ settings, onChange, onDeleteAll, focus, o
   const supported = remindersSupported();
 
   useEffect(() => {
-    if (focus === 'meditation') document.getElementById('meditation-settings')?.scrollIntoView();
+    if (focus) document.getElementById(focus === 'key' ? 'custom-meditations' : 'meditation-settings')?.scrollIntoView();
   }, [focus]);
 
   async function updateReminder(enabled: boolean, time: string) {

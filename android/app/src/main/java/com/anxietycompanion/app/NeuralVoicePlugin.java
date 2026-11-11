@@ -18,6 +18,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.k2fsa.sherpa.onnx.GeneratedAudio;
 import com.k2fsa.sherpa.onnx.OfflineTts;
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig;
+import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig;
 
@@ -31,23 +32,25 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** On-device neural text-to-speech (sherpa-onnx + a Piper voice bundled under assets/voice). */
+/** On-device neural text-to-speech (sherpa-onnx). Two bundled models: a fast Piper voice and multi-speaker Kokoro. */
 @CapacitorPlugin(name = "NeuralVoice")
 public class NeuralVoicePlugin extends Plugin {
     private static final String ASSETS = "voice";
+    private static final String KOKORO_ASSETS = "voice-kokoro";
     private static final String BENCH_TEXT = "Take a slow breath in, and notice where your body meets the chair.";
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final AtomicInteger epoch = new AtomicInteger();
     private OfflineTts tts;
+    private String loadedModel;
     private MediaPlayer player;
     private PluginCall playCall;
     private AudioFocusRequest focusRequest;
 
-    private boolean modelBundled() {
+    private boolean bundled(String dir, String file) {
         try {
-            String[] files = getContext().getAssets().list(ASSETS);
-            return files != null && Arrays.asList(files).contains("model.onnx");
+            String[] files = getContext().getAssets().list(dir);
+            return files != null && Arrays.asList(files).contains(file);
         } catch (IOException e) {
             return false;
         }
@@ -84,9 +87,14 @@ public class NeuralVoicePlugin extends Plugin {
         for (String child : children) copyAssetDir(assets, from + "/" + child, new File(to, child));
     }
 
-    // The pronunciation data must be on the real filesystem; the model itself loads straight from assets.
-    private synchronized OfflineTts engine() throws IOException {
-        if (tts != null) return tts;
+    // The pronunciation data must be on the real filesystem; the models load straight from assets.
+    // Only one model is kept in memory; asking for the other swaps it.
+    private synchronized OfflineTts engine(String which) throws IOException {
+        if (tts != null && which.equals(loadedModel)) return tts;
+        if (tts != null) {
+            tts.release();
+            tts = null;
+        }
         AssetManager assets = getContext().getAssets();
         File dataDir = new File(getContext().getFilesDir(), "voice/espeak-ng-data");
         File marker = new File(dataDir, ".copied-v1");
@@ -95,28 +103,39 @@ public class NeuralVoicePlugin extends Plugin {
             marker.createNewFile();
         }
 
-        OfflineTtsVitsModelConfig vits = new OfflineTtsVitsModelConfig();
-        vits.setModel(ASSETS + "/model.onnx");
-        vits.setTokens(ASSETS + "/tokens.txt");
-        vits.setDataDir(dataDir.getAbsolutePath());
-        vits.setNoiseScale(0.5f);
-        vits.setNoiseScaleW(0.7f);
-
         OfflineTtsModelConfig model = new OfflineTtsModelConfig();
-        model.setVits(vits);
+        if ("kokoro".equals(which)) {
+            OfflineTtsKokoroModelConfig kokoro = new OfflineTtsKokoroModelConfig();
+            kokoro.setModel(KOKORO_ASSETS + "/model.int8.onnx");
+            kokoro.setVoices(KOKORO_ASSETS + "/voices.bin");
+            kokoro.setTokens(KOKORO_ASSETS + "/tokens.txt");
+            kokoro.setLexicon(KOKORO_ASSETS + "/lexicon-us-en.txt");
+            kokoro.setDataDir(dataDir.getAbsolutePath());
+            model.setKokoro(kokoro);
+        } else {
+            OfflineTtsVitsModelConfig vits = new OfflineTtsVitsModelConfig();
+            vits.setModel(ASSETS + "/model.onnx");
+            vits.setTokens(ASSETS + "/tokens.txt");
+            vits.setDataDir(dataDir.getAbsolutePath());
+            vits.setNoiseScale(0.5f);
+            vits.setNoiseScaleW(0.7f);
+            model.setVits(vits);
+        }
         model.setNumThreads(Math.max(1, Math.min(4, cores() / 2)));
         model.setProvider("cpu");
 
         OfflineTtsConfig config = new OfflineTtsConfig();
         config.setModel(model);
         tts = new OfflineTts(assets, config);
+        loadedModel = which;
         return tts;
     }
 
     @PluginMethod
     public void info(PluginCall call) {
         JSObject ret = new JSObject();
-        ret.put("available", modelBundled());
+        ret.put("piper", bundled(ASSETS, "model.onnx"));
+        ret.put("kokoro", bundled(KOKORO_ASSETS, "model.int8.onnx") && bundled(ASSETS, "model.onnx"));
         ret.put("cores", cores());
         ret.put("ramMb", ramMb());
         call.resolve(ret);
@@ -127,7 +146,7 @@ public class NeuralVoicePlugin extends Plugin {
     public void benchmark(PluginCall call) {
         worker.execute(() -> {
             try {
-                OfflineTts t = engine();
+                OfflineTts t = engine("piper");
                 t.generate("Hello.", 0, 1.0f);
                 long start = System.nanoTime();
                 GeneratedAudio audio = t.generate(BENCH_TEXT, 0, 0.85f);
@@ -149,6 +168,8 @@ public class NeuralVoicePlugin extends Plugin {
         String id = call.getString("id");
         String text = call.getString("text");
         float speed = call.getFloat("speed", 0.85f);
+        String model = call.getString("model", "piper");
+        int sid = call.getInt("sid", 0);
         if (id == null || text == null) {
             call.reject("id and text are required");
             return;
@@ -168,7 +189,7 @@ public class NeuralVoicePlugin extends Plugin {
                     call.resolve(ret);
                     return;
                 }
-                GeneratedAudio audio = engine().generate(text, 0, speed);
+                GeneratedAudio audio = engine(model).generate(text, sid, speed);
                 File tmp = new File(out.getPath() + ".part");
                 if (audio.getSamples().length == 0 || !audio.save(tmp.getAbsolutePath()) || !tmp.renameTo(out)) {
                     tmp.delete();

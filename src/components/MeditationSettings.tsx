@@ -1,12 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Settings, VoiceChoice } from '../types';
-import { benchVerdict, chooseEngine, neuralAvailable, runBenchmark, VoiceEngine, VOICE_LABEL } from '../lib/voice';
-
-const CHOICES: { value: VoiceChoice; label: string }[] = [
-  { value: 'auto', label: 'Automatic' },
-  { value: 'neural', label: 'Natural voice' },
-  { value: 'system', label: 'Phone voice' },
-];
+import { Settings } from '../types';
+import {
+  benchVerdict, chooseEngine, installedModels, PAUSE_SCALES, SPEEDS, VoiceEngine, voiceOption, VOICES,
+} from '../lib/voice';
 
 const SAMPLE = 'Take a slow breath in, and let it go. There is nothing you need to fix right now.';
 
@@ -16,55 +12,126 @@ interface Props {
 }
 
 export default function MeditationSettings({ settings, onChange }: Props) {
-  const [hasNeural, setHasNeural] = useState<boolean | null>(null);
+  const [installed, setInstalled] = useState<{ piper: boolean; kokoro: boolean } | null>(null);
   const [showKey, setShowKey] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [sampleVoice, setSampleVoice] = useState<string | null>(null);
+  const [listening, setListening] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const engineRef = useRef<VoiceEngine | null>(null);
+  const requestRef = useRef(0);
 
   useEffect(() => {
-    neuralAvailable().then(setHasNeural);
-    return () => { engineRef.current?.stop(); };
+    installedModels().then(setInstalled);
+    return () => {
+      requestRef.current++;
+      engineRef.current?.stop();
+    };
   }, []);
 
-  async function playSample() {
-    setTesting(true);
-    setSampleVoice(null);
+  const selected = voiceOption(settings.voiceChoice).id;
+  const voices = VOICES.filter(v => !v.model || installed?.[v.model]);
+
+  async function listen(voiceId: string) {
+    const request = ++requestRef.current;
+    await engineRef.current?.stop();
+    if (listening === voiceId) {
+      setListening(null);
+      return;
+    }
+    setListening(voiceId);
+    setNote(null);
     try {
-      await engineRef.current?.stop();
       const engine = await chooseEngine(
-        settings.voiceChoice,
-        settings.voiceBench,
+        { ...settings, voiceChoice: voiceId },
         bench => onChange(prev => ({ ...prev, voiceBench: bench })),
       );
+      if (request !== requestRef.current) return;
       engineRef.current = engine;
-      setSampleVoice(VOICE_LABEL[engine.kind]);
-      await engine.speak('settings-sample', SAMPLE);
+      if (engine.voice.id !== voiceId && voiceId !== 'auto') {
+        setNote(`${voiceOption(voiceId).label} isn't available on this device, so this is the phone voice.`);
+      } else if (voiceId === 'auto') {
+        setNote(`Automatic is using: ${engine.voice.label}.`);
+      } else if (engine.slowToPrepare) {
+        setNote('Preparing this voice… the first listen takes a few seconds.');
+      }
+      await engine.speak('sample', SAMPLE);
     } catch {
-      setSampleVoice('The natural voice could not start on this device. Try "Phone voice".');
+      if (request === requestRef.current) setNote("That voice couldn't start on this device. Try another one.");
     } finally {
-      setTesting(false);
+      if (request === requestRef.current) setListening(null);
     }
   }
 
-  async function retest() {
-    setTesting(true);
-    const bench = await runBenchmark();
-    if (bench) onChange(prev => ({ ...prev, voiceBench: bench }));
-    setTesting(false);
-  }
-
   const bench = settings.voiceBench;
-  const speedText = {
-    untested: "This device's speed is measured the first time the natural voice is used.",
-    ok: `This device generates the natural voice at ${bench ? (1 / bench.rtf).toFixed(1) : ''}× speaking speed, so Automatic uses it.`,
-    slow: `This device generates the natural voice at only ${bench ? (1 / bench.rtf).toFixed(1) : ''}× speaking speed, so Automatic uses the phone voice.`,
-    'low-memory': "This device doesn't have enough memory for the natural voice, so Automatic uses the phone voice.",
+  const autoText = {
+    untested: '',
+    ok: `Jenny runs at ${bench ? (1 / bench.rtf).toFixed(1) : ''}× speaking speed on this device, so Automatic uses her.`,
+    slow: `Jenny runs at only ${bench ? (1 / bench.rtf).toFixed(1) : ''}× speaking speed on this device, so Automatic uses the phone voice.`,
+    'low-memory': "This device doesn't have enough memory for the natural voices, so Automatic uses the phone voice.",
   }[benchVerdict(bench)];
 
   return (
     <div className="settings-section" id="meditation-settings">
-      <div className="section-label">Custom meditations</div>
+      <div className="section-label">Meditation voice</div>
+      <div className="card settings-card">
+        <div className="settings-row-title">Voice</div>
+        <p className="settings-row-sub">
+          Tap Listen to hear each one at your chosen speed.
+          {installed?.kokoro && ' Every voice except Jenny and the phone voice needs a little time to prepare each new meditation.'}
+        </p>
+        <div className="voice-list">
+          {voices.map(v => (
+            <div key={v.id} className={`voice-row ${selected === v.id ? 'selected' : ''}`}>
+              <button
+                className="voice-pick"
+                aria-pressed={selected === v.id}
+                onClick={() => onChange(prev => ({ ...prev, voiceChoice: v.id }))}
+              >
+                <span className="voice-name">{selected === v.id ? '✓ ' : ''}{v.label}</span>
+                <span className="voice-detail">{v.detail}</span>
+              </button>
+              <button className="voice-listen" onClick={() => listen(v.id)} aria-label={`Listen to ${v.label}`}>
+                {listening === v.id ? 'Stop' : 'Listen'}
+              </button>
+            </div>
+          ))}
+        </div>
+        {note && <p className="settings-row-sub mt-2" role="status">{note}</p>}
+        {selected === 'auto' && autoText && <p className="settings-row-sub mt-2">{autoText}</p>}
+        {installed && !installed.piper && (
+          <p className="settings-row-sub mt-2">More natural voices are available in the Android app.</p>
+        )}
+
+        <div className="settings-row-title mt-6">Speaking speed</div>
+        <div className="chip-row">
+          {SPEEDS.map(s => (
+            <button
+              key={s.value}
+              className={`chip ${settings.speechSpeed === s.value ? 'selected' : ''}`}
+              aria-pressed={settings.speechSpeed === s.value}
+              onClick={() => onChange(prev => ({ ...prev, speechSpeed: s.value }))}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="settings-row-title mt-6">Silences between lines</div>
+        <div className="chip-row">
+          {PAUSE_SCALES.map(p => (
+            <button
+              key={p.value}
+              className={`chip ${settings.pauseScale === p.value ? 'selected' : ''}`}
+              aria-pressed={settings.pauseScale === p.value}
+              onClick={() => onChange(prev => ({ ...prev, pauseScale: p.value }))}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <p className="settings-row-sub mt-2">Longer silences make a meditation last longer than its stated length.</p>
+      </div>
+
+      <div className="section-label mt-6" id="custom-meditations">Custom meditations</div>
       <div className="card settings-card">
         <label className="settings-row-title" htmlFor="api-key">Anthropic API key</label>
         <p className="settings-row-sub mb-4">
@@ -87,39 +154,6 @@ export default function MeditationSettings({ settings, onChange }: Props) {
             {showKey ? 'Hide' : 'Show'}
           </button>
         </div>
-
-        <div className="settings-row-title mt-6">Voice</div>
-        {hasNeural === false ? (
-          <p className="settings-row-sub">
-            Meditations are read by your device's built-in voice. The natural voice is available in the Android app.
-          </p>
-        ) : (
-          <>
-            <div className="chip-row">
-              {CHOICES.map(c => (
-                <button
-                  key={c.value}
-                  className={`chip ${settings.voiceChoice === c.value ? 'selected' : ''}`}
-                  aria-pressed={settings.voiceChoice === c.value}
-                  onClick={() => onChange(prev => ({ ...prev, voiceChoice: c.value }))}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-            <p className="settings-row-sub mt-2">{speedText}</p>
-          </>
-        )}
-
-        <div className="voice-actions">
-          <button className="btn btn-outline" disabled={testing} onClick={playSample}>
-            {testing ? 'Working…' : 'Play a sample'}
-          </button>
-          {hasNeural && (
-            <button className="btn btn-ghost" disabled={testing} onClick={retest}>Re-test speed</button>
-          )}
-        </div>
-        {sampleVoice && <p className="settings-row-sub mt-2" role="status">{sampleVoice}</p>}
       </div>
     </div>
   );

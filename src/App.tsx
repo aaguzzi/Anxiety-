@@ -31,6 +31,8 @@ const defaultSettings: Settings = {
   anthropicKey: '',
   voiceChoice: 'auto',
   voiceBench: null,
+  speechSpeed: 0.65,
+  pauseScale: 1,
 };
 
 type Overlay = 'none' | 'sos' | 'settings' | 'history';
@@ -45,7 +47,7 @@ export default function App() {
   const [meditations, setMeditations] = useLocalStorage<Meditation[]>('ac-meditations', []);
   const [activeMeditation, setActiveMeditation] = useState<Meditation | null>(null);
   const [writing, setWriting] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
-  const [settingsFocus, setSettingsFocus] = useState<'meditation' | null>(null);
+  const [settingsFocus, setSettingsFocus] = useState<'voice' | 'key' | null>(null);
   const screenRef = useRef<HTMLDivElement>(null);
 
   const navRef = useRef({ tab, activeExercise, overlay, activeMeditation });
@@ -163,7 +165,7 @@ export default function App() {
             onCreate={createMeditation}
             onPlay={setActiveMeditation}
             onDelete={id => { clearVoiceCache(`${id}-`); setMeditations(prev => prev.filter(m => m.id !== id)); }}
-            onOpenSettings={() => { setSettingsFocus('meditation'); setOverlay('settings'); }}
+            onOpenSettings={target => { setSettingsFocus(target); setOverlay('settings'); }}
           />
         )}
         {tab === 'toolbox' && (
