@@ -1,0 +1,27 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 360, height: 740 } });
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.goto(process.env.APP_URL || 'http://localhost:4173/');
+  await p.evaluate(() => { localStorage.clear(); localStorage.setItem('ac-settings', JSON.stringify({ onboarded: true })); });
+  await p.reload();
+  await p.getByRole('button', { name: 'Toolbox', exact: true }).click();
+  await p.getByText('Box Breathing').first().click();
+  await p.getByText('Skip the breath-holds').click();
+  await p.getByRole('button', { name: 'Begin', exact: true }).click();
+  await p.getByText('Nicely done.').waitFor({ timeout: 45000 });
+  console.log('PASS breathing ends on a completion screen');
+  await p.getByRole('button', { name: 'Finish', exact: true }).click();
+  console.log((await p.evaluate(() => localStorage.getItem('ac-history'))).includes('box-breathing') ? 'PASS practice recorded' : 'FAIL practice not recorded');
+  await p.getByRole('button', { name: 'Check-In', exact: true }).click();
+  await p.getByRole('button', { name: 'Continue' }).click();
+  await p.getByText('Caught in anxious thoughts').click(); await p.waitForTimeout(400);
+  await p.getByText('Racing or looping thoughts').click(); await p.waitForTimeout(400);
+  await p.getByText('To get distance from my thoughts').click();
+  await p.getByText("Here's what might help").waitFor({ timeout: 3000 });
+  console.log('PASS check-in still completes');
+  await p.getByRole('button', { name: /SOS/ }).click();
+  await p.getByText('This feeling will pass.').waitFor({ timeout: 3000 });
+  console.log('PASS SOS opens; errors:', JSON.stringify(errs));
+  await b.close();
+})().catch(e => { console.log('FAILED', e.message.split('\n')[0]); process.exit(1); });
