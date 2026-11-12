@@ -14,7 +14,7 @@ import wave
 import numpy as np
 
 # Bump when a change here should replace loops that were generated earlier.
-VERSION = "2"
+VERSION = "3"
 SR = 32000
 DUR = 60
 N = SR * DUR
@@ -181,13 +181,16 @@ def bowls(rng):
     length = int(26 * SR)
     t = np.arange(length) / SR
     attack = np.clip(t / 0.006, 0, 1)
+    # The lowest note is still ringing faintly when the strike's time is up: fade it out over the
+    # last two seconds rather than cutting it off, which would tick.
+    release = np.clip((length - np.arange(length)) / (2.0 * SR), 0, 1)
     for when, fundamental in strikes:
         sig = np.zeros(length)
         for ratio, amp, decay in partials:
             f = fundamental * ratio
             # Two close modes give the slow shimmer of a real bowl.
             sig += amp * np.exp(-t / decay) * (np.sin(2 * np.pi * f * t) + 0.7 * np.sin(2 * np.pi * (f + 0.6) * t + 1.0))
-        add_wrapped(out, int(when * SR), sig * attack)
+        add_wrapped(out, int(when * SR), sig * attack * release)
     return normalise(out, level=-28.0)
 
 

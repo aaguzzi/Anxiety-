@@ -2,8 +2,8 @@
 // (shut / near) come out wrong. Before text is spoken, the wrongly-read sense is respelled with a
 // spelling the voices pronounce correctly. Captions keep the original text.
 
-/** Bump when rules change so previously generated speech is regenerated. */
-export const PRONUNCIATION_VERSION = 4;
+// Generated speech is cached under a fingerprint of the respelled text (see voice.ts), so a change
+// to these rules is picked up by itself: lines it affects are generated again.
 
 // "close" is the adjective (near) in these contexts; everywhere else in a meditation it is the verb.
 const CLOSE_ADJ_BEFORE = /\b(so|very|too|quite|really|as|how|this|that|a|stay|stays|staying|come|comes|keep|keeps|kept|hold|holds|held|feel|feels|draw|draws|up|remain|remains)\s+$/i;

@@ -54,11 +54,17 @@ def fetch_url(url, dest):
 
 
 def add_blended_voices(path):
-    """Appends the BLENDS voices to Supertonic's voice file. Does nothing if they are already there."""
+    """Writes the BLENDS voices after Supertonic's own ten in its voice file.
+
+    The file is rebuilt from the model's ten voices on every run, so editing BLENDS takes effect
+    even when the file was blended before. (When BLENDS changes, also bump ENGINE_VERSION in
+    src/lib/voice.ts, or phones keep playing lines they generated with the old blend.)
+    """
+    own = 10
     with open(path, "rb") as f:
         raw = f.read()
     count, a, b, count2, c, d = struct.unpack("<6q", raw[:48])
-    if count != 10 or count2 != 10:
+    if count < own or count2 != count:
         return
     values = array("f")
     values.frombytes(raw[48:])
@@ -66,8 +72,8 @@ def add_blended_voices(path):
         values.byteswap()
     # Each voice is two style vectors: one for how it sounds, one for its rhythm.
     tone, rhythm = a * b, c * d
-    tones = [values[i * tone:(i + 1) * tone] for i in range(count)]
-    rhythms = [values[count * tone + i * rhythm:count * tone + (i + 1) * rhythm] for i in range(count)]
+    tones = [values[i * tone:(i + 1) * tone] for i in range(own)]
+    rhythms = [values[count * tone + i * rhythm:count * tone + (i + 1) * rhythm] for i in range(own)]
     for base, other, share in BLENDS:
         for styles in (tones, rhythms):
             styles.append(array("f", [x * (1 - share) + y * share for x, y in zip(styles[base], styles[other])]))
@@ -76,9 +82,11 @@ def add_blended_voices(path):
         out.extend(style)
     if sys.byteorder != "little":
         out.byteswap()
+    blended = struct.pack("<6q", len(tones), a, b, len(rhythms), c, d) + out.tobytes()
+    if blended == raw:
+        return
     with open(path + ".part", "wb") as f:
-        f.write(struct.pack("<6q", len(tones), a, b, len(rhythms), c, d))
-        f.write(out.tobytes())
+        f.write(blended)
     os.replace(path + ".part", path)
 
 

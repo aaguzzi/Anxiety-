@@ -45,6 +45,8 @@ export default function MeditationPlayer({
 
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+  const panelOpenRef = useRef(voicePanelOpen);
+  panelOpenRef.current = voicePanelOpen;
   const engineRef = useRef<VoiceEngine | null>(null);
   // Set while the phone itself is playing the meditation (natural voices), so it survives screen-off.
   const backgroundRef = useRef<BackgroundSession | null>(null);
@@ -142,7 +144,9 @@ export default function MeditationPlayer({
       posRef.current = { index: i, gapEndsAt: Date.now() + pause * 1000 };
       await wait(pause * 1000);
     }
-    if (live()) show('done');
+    if (!live()) return;
+    engineRef.current?.halt(); // hands the speaker back to whatever was playing before
+    show('done');
   }
 
   function onBackgroundState(state: SessionState) {
@@ -152,22 +156,37 @@ export default function MeditationPlayer({
       if (backgroundLiveRef.current && statusRef.current !== 'done') onClose();
       return;
     }
-    const at = Math.min(state.index, segments.length - 1);
-    if (at !== indexRef.current) moveTo(at);
+    const at = Math.max(0, Math.min(state.index, segments.length - 1));
+    if (at !== indexRef.current) {
+      moveTo(at);
+    } else if (state.lineStart) {
+      // The same sentence again from its start (resumed part-way through it, or "previous" on the first).
+      lineClockRef.current = { banked: 0, since: statusRef.current === 'playing' ? Date.now() : null };
+    }
     if (state.status === 'error') {
       // The natural voice failed part-way: carry on from here with the phone's own voice.
       backgroundRef.current = null;
       engineRef.current = fallbackEngine(settingsRef.current.speechSpeed);
       setVoiceName(engineRef.current.voice.label);
-      playSounds(true); // the session that was playing them is gone
-      run(state.index);
+      resumeRef.current = { index: at, delayMs: 0 };
+      posRef.current = { index: at, gapEndsAt: 0 };
+      if (statusRef.current === 'paused' || panelOpenRef.current || document.visibilityState === 'hidden') {
+        // Paused, in Voice & sounds, or off screen (where this screen can't keep time): don't
+        // start speaking unasked. Resume carries on from this sentence.
+        show('paused');
+        return;
+      }
+      // The session that kept the sounds playing and the phone awake is gone.
+      keepScreenAwake(true);
+      playSounds(true);
+      run(at);
     } else {
       show(state.status);
     }
   }
 
-  async function startInBackground(session: BackgroundSession, from: number) {
-    backgroundRef.current = session;
+  /** Hands playback to the phone. False if the start was abandoned while it was being set up. */
+  async function startInBackground(session: BackgroundSession, from: number, wanted: () => boolean): Promise<boolean> {
     backgroundLiveRef.current = false;
     show('preparing');
     await session.start(
@@ -180,9 +199,21 @@ export default function MeditationPlayer({
       onBackgroundState,
       from,
     );
+    if (!wanted()) {
+      // Closed or restarted meanwhile (the notification permission prompt can take a while).
+      session.stop();
+      return false;
+    }
+    // Only now is there something for the controls to act on.
+    backgroundRef.current = session;
     backgroundLiveRef.current = true;
     // From here the phone plays the background sounds along with the session.
     playSounds(false);
+    // Whatever it reported while starting went unheard; ask where it is.
+    session.sync().then(state => {
+      if (backgroundRef.current === session) onBackgroundState(state);
+    }, () => {});
+    return true;
   }
 
   /** Starts (or restarts) playback from a sentence, with the voice settings as they are now. */
@@ -206,9 +237,7 @@ export default function MeditationPlayer({
     setSlowStart(engine.slowToPrepare);
     if (engine.background) {
       try {
-        await startInBackground(engine.background, from);
-        // Abandoned while it was starting (e.g. closed during the notification permission prompt).
-        if (!current()) engine.background.stop();
+        await startInBackground(engine.background, from, current);
         return;
       } catch {
         // The playback service couldn't start: fall back to timing the lines from this screen.
@@ -275,6 +304,12 @@ export default function MeditationPlayer({
       ? (paused.delayMs > 0 ? paused.index - 1 : paused.index)
       : posRef.current.index;
     seek(current + by);
+  }
+
+  /** Back to the first sentence. Before anything is playing, that means starting afresh. */
+  function startOver() {
+    if (statusRef.current === 'preparing' && !backgroundRef.current) start(0);
+    else seek(0);
   }
 
   function onScrub(seconds: number) {
@@ -449,7 +484,7 @@ export default function MeditationPlayer({
           {showResumed && (
             <div className="player-resumed">
               Picking up where you left off.{' '}
-              <button onClick={() => seek(0)}>Start from the beginning</button>
+              <button onClick={startOver}>Start from the beginning</button>
             </div>
           )}
 
@@ -467,7 +502,7 @@ export default function MeditationPlayer({
           />
           <div className="player-time">
             <span>{clock(shown)}</span>
-            <button className="player-restart" onClick={() => seek(0)} disabled={busy || (index === 0 && status === 'paused')}>
+            <button className="player-restart" onClick={startOver} disabled={busy || (index === 0 && status === 'paused')}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
                 <path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v4.5h4.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>

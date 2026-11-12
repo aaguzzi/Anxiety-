@@ -37,8 +37,16 @@ public class NeuralVoicePlugin extends Plugin {
     private MediaPlayer player;
     private PluginCall playCall;
     private AudioFocusRequest focusRequest;
-    private final MeditationSession.Listener sessionListener =
-        (status, index) -> notifyListeners("sessionState", state(status, index));
+    private final MeditationSession.Listener sessionListener = (status, index, lineStart) -> {
+        JSObject ret = state(status, index);
+        ret.put("lineStart", lineStart);
+        notifyListeners("sessionState", ret);
+    };
+
+    /** Something to do to the meditation that is playing. (Not java.util.function: Android 6 lacks it.) */
+    private interface SessionAction {
+        void run(MeditationSession session);
+    }
 
     @Override
     public void load() {
@@ -235,6 +243,7 @@ public class NeuralVoicePlugin extends Plugin {
             return;
         }
         final String title = call.getString("title", "Meditation");
+        final String tag = call.getString("tag", "");
         final VoiceCore.Spec voice = spec(call);
         final int lead = call.getInt("lead", 2);
         final int startIndex = call.getInt("startIndex", 0);
@@ -244,7 +253,7 @@ public class NeuralVoicePlugin extends Plugin {
                 if (MeditationSession.current != null) MeditationSession.current.replace();
                 finishPlayback(true);
                 MeditationSession session = new MeditationSession(
-                    getContext(), title, ids, texts, pauses, voice, lead, startIndex);
+                    getContext(), title, tag, ids, texts, pauses, voice, lead, startIndex);
                 session.begin();
                 MeditationService.start(getContext());
                 call.resolve();
@@ -255,10 +264,10 @@ public class NeuralVoicePlugin extends Plugin {
         });
     }
 
-    private void withSession(PluginCall call, java.util.function.Consumer<MeditationSession> action) {
+    private void withSession(PluginCall call, SessionAction action) {
         getActivity().runOnUiThread(() -> {
             MeditationSession session = MeditationSession.current;
-            if (session != null) action.accept(session);
+            if (session != null) action.run(session);
             call.resolve();
         });
     }
@@ -285,9 +294,13 @@ public class NeuralVoicePlugin extends Plugin {
         withSession(call, session -> session.seek(index));
     }
 
+    /** Stops the meditation. With a tag, only if it is still the one that was started with that tag. */
     @PluginMethod
     public void stopSession(PluginCall call) {
-        withSession(call, MeditationSession::stop);
+        final String tag = call.getString("tag", "");
+        withSession(call, session -> {
+            if (tag.isEmpty() || tag.equals(session.tag)) session.stop();
+        });
     }
 
     /** The current session's state, for the app to catch up after being in the background. */
@@ -351,10 +364,23 @@ public class NeuralVoicePlugin extends Plugin {
         });
     }
 
+    // A preview of the sounds is for someone looking at the app: it stops when the app leaves the
+    // screen or the phone is locked, and comes back with the app. A meditation is not affected.
+    @Override
+    protected void handleOnStop() {
+        Ambience.visible(false);
+    }
+
+    @Override
+    protected void handleOnStart() {
+        Ambience.visible(true);
+    }
+
     @Override
     protected void handleOnDestroy() {
         epoch.incrementAndGet();
         releasePlayer();
+        abandonFocus();
         Ambience.preview(false);
         // A relaunched activity may already have registered its own plugin; leave its session alone.
         if (MeditationSession.listener == sessionListener) {

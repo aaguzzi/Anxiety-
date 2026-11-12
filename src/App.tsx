@@ -123,9 +123,26 @@ export default function App() {
       const meditation = await generateMeditation(settings.anthropicKey.trim(), prompt, setup, settings.speechSpeed);
       setMeditations(prev => [...prev, meditation]);
       setWriting({ busy: false, error: null });
-      const nav = navRef.current;
-      if (nav.tab === 'meditate' && nav.overlay === 'none' && !nav.activeExercise && !nav.activeMeditation) {
-        setActiveMeditation(meditation);
+      const open = () => {
+        const nav = navRef.current;
+        if (nav.tab === 'meditate' && nav.overlay === 'none' && !nav.activeExercise && !nav.activeMeditation) {
+          setActiveMeditation(meditation);
+        }
+      };
+      // Writing takes a while, and the phone may have been locked or the app left meanwhile.
+      // The phone only lets an app that is on screen start playing, so wait until it is back.
+      let waiting = true;
+      const whenBack = CapApp.addListener('appStateChange', state => {
+        if (!state.isActive || !waiting) return;
+        waiting = false;
+        whenBack.then(l => l.remove());
+        open();
+      });
+      const { isActive } = await CapApp.getState().catch(() => ({ isActive: true }));
+      if (isActive && waiting) {
+        waiting = false;
+        whenBack.then(l => l.remove());
+        open();
       }
       return true;
     } catch (e) {

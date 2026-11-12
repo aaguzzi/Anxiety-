@@ -9,12 +9,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.ServiceCompat;
 import androidx.core.content.ContextCompat;
 import androidx.media.app.NotificationCompat.MediaStyle;
 
@@ -50,7 +52,7 @@ public class MeditationService extends Service {
     // onStartCommand finds no session and stops then.
     static void stop() {
         if (instance == null) return;
-        instance.stopForeground(STOP_FOREGROUND_REMOVE);
+        ServiceCompat.stopForeground(instance, ServiceCompat.STOP_FOREGROUND_REMOVE);
         instance.stopSelf();
     }
 
@@ -79,7 +81,7 @@ public class MeditationService extends Service {
             .setPriority(NotificationCompat.PRIORITY_LOW);
         if (paused) builder.addAction(android.R.drawable.ic_media_play, "Resume", action(ACTION_RESUME, 1));
         else builder.addAction(android.R.drawable.ic_media_pause, "Pause", action(ACTION_PAUSE, 2));
-        builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", action(ACTION_STOP, 3));
+        builder.addAction(R.drawable.ic_stat_stop, "Stop", action(ACTION_STOP, 3));
         MediaStyle style = new MediaStyle().setShowActionsInCompactView(0, 1);
         if (mediaSession != null) style.setMediaSession(mediaSession.getSessionToken());
         return builder.setStyle(style).build();
@@ -100,6 +102,10 @@ public class MeditationService extends Service {
                 .setState(paused ? PlaybackStateCompat.STATE_PAUSED
                         : preparing ? PlaybackStateCompat.STATE_BUFFERING : PlaybackStateCompat.STATE_PLAYING,
                     PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1f)
+                // From Android 13 the phone draws the controls from this state and ignores the
+                // notification's own buttons, so Stop has to be offered here as well.
+                .addCustomAction(new PlaybackStateCompat.CustomAction.Builder(
+                    ACTION_STOP, "Stop", R.drawable.ic_stat_stop).build())
                 .build());
         }
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -130,6 +136,11 @@ public class MeditationService extends Service {
             @Override
             public void onStop() {
                 if (MeditationSession.current != null) MeditationSession.current.stop();
+            }
+
+            @Override
+            public void onCustomAction(String action, Bundle extras) {
+                if (ACTION_STOP.equals(action) && MeditationSession.current != null) MeditationSession.current.stop();
             }
 
             @Override

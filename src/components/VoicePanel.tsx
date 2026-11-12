@@ -110,7 +110,11 @@ export default function VoicePanel({ settings, onChange, duringMeditation, onClo
     } catch {
       if (request === requestRef.current) setNote("That voice couldn't start on this device. Try another one.");
     } finally {
-      if (request === requestRef.current) setListening(null);
+      if (request === requestRef.current) {
+        setListening(null);
+        // Hand the speaker back, so music that went quiet for the sample comes up again.
+        engineRef.current?.halt();
+      }
     }
   }
 

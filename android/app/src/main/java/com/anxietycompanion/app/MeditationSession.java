@@ -22,7 +22,8 @@ import androidx.core.content.ContextCompat;
  */
 final class MeditationSession {
     interface Listener {
-        void onState(String status, int index);
+        /** lineStart: the line's audio has just started from its beginning. */
+        void onState(String status, int index, boolean lineStart);
     }
 
     static final String PREPARING = "preparing";
@@ -40,6 +41,8 @@ final class MeditationSession {
     static int lastIndex;
 
     final String title;
+    /** Names this session to the app, so a late "stop" meant for an earlier one can't end it. */
+    final String tag;
     private final Context app;
     private final String[] ids;
     private final String[] texts;
@@ -72,14 +75,18 @@ final class MeditationSession {
     private final BroadcastReceiver noisyReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            pause(); // headphones unplugged: don't carry on through the speaker
+            // Headphones unplugged: don't carry on through the speaker, not even for a moment.
+            pausedByFocus = false;
+            pauseKeepingFocus(0.15f);
+            abandonFocus();
         }
     };
 
-    MeditationSession(Context context, String title, String[] ids, String[] texts, long[] pauseMs,
+    MeditationSession(Context context, String title, String tag, String[] ids, String[] texts, long[] pauseMs,
                       VoiceCore.Spec voice, int lead, int startIndex) {
         this.app = context.getApplicationContext();
         this.title = title;
+        this.tag = tag;
         this.ids = ids;
         this.texts = texts;
         this.pauseMs = pauseMs;
@@ -103,10 +110,16 @@ final class MeditationSession {
         lastStatus = "none";
         ContextCompat.registerReceiver(app, noisyReceiver,
             new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), ContextCompat.RECEIVER_NOT_EXPORTED);
-        holdAwake(true);
-        Ambience.session(true, 2.5f);
-        emit(PREPARING);
         VoiceCore.WORKER.execute(() -> VoiceCore.pruneProcessed(app, voice));
+        // Ask other apps to stop before any sound starts, the background sounds included.
+        if (requestFocus()) {
+            holdAwake(true);
+            Ambience.session(true, true, 2.5f);
+            emit(PREPARING);
+        } else {
+            // A phone call is in progress: get the voice ready, and start when the call ends.
+            pauseForFocus();
+        }
         generateNext();
     }
 
@@ -202,37 +215,64 @@ final class MeditationSession {
 
     void pause() {
         pausedByFocus = false;
-        pauseKeepingFocus();
+        pauseKeepingFocus(0.8f);
         abandonFocus();
     }
 
     private void pauseForFocus() {
-        pauseKeepingFocus();
+        pauseKeepingFocus(0.8f);
         pausedByFocus = true;
     }
 
-    private void pauseKeepingFocus() {
-        if (ended || PAUSED.equals(status)) return;
-        token++;
-        if (gapEndsAt > 0) {
-            // In the silence after a line: resume with what's left of it, not by repeating the line.
-            resumeIndex = index + 1;
-            resumeDelay = Math.max(0, gapEndsAt - SystemClock.elapsedRealtime());
-        } else {
-            resumeIndex = index;
-            resumeDelay = 0;
+    private void pauseKeepingFocus(float fade) {
+        if (ended) return;
+        final boolean already = PAUSED.equals(status);
+        if (!already) {
+            token++;
+            if (gapEndsAt > 0) {
+                // In the silence after a line: resume with what's left of it, not by repeating the line.
+                resumeIndex = index + 1;
+                resumeDelay = Math.max(0, gapEndsAt - SystemClock.elapsedRealtime());
+            } else {
+                resumeIndex = index;
+                resumeDelay = 0;
+                long echo = echoLeft();
+                if (echo >= 0) {
+                    // The words are over and only the room echo is ringing: that is silence already begun.
+                    resumeIndex = index + 1;
+                    resumeDelay = echo + Math.max(150, pauseMs[index] - tailMs);
+                }
+            }
         }
+        // Also when already paused: a resume that could not get the speaker has to be undone in full.
         releasePlayer();
         holdAwake(false);
-        Ambience.session(false, 0.8f);
-        emit(PAUSED);
+        Ambience.session(false, true, fade);
+        if (!already) emit(PAUSED);
+    }
+
+    /** While a line's words are over and only its room echo is still playing: how long is left of it. Else -1. */
+    private long echoLeft() {
+        if (tailMs <= 0 || !PLAYING.equals(status) || player == null) return -1;
+        try {
+            if (!player.isPlaying()) return -1;
+            long left = player.getDuration() - player.getCurrentPosition();
+            return left >= 0 && left <= tailMs ? left : -1;
+        } catch (Throwable e) {
+            return -1;
+        }
     }
 
     void resume() {
         if (ended || !PAUSED.equals(status)) return;
+        if (!requestFocus()) {
+            // A phone call has the speaker: stay paused, and carry on by itself when the call ends.
+            pausedByFocus = true;
+            return;
+        }
         pausedByFocus = false;
         holdAwake(true);
-        Ambience.session(true, 1.2f);
+        Ambience.session(true, true, 1.2f);
         final int t = ++token;
         if (resumeDelay > 0 && resumeIndex > 0) {
             index = resumeIndex - 1;
@@ -301,13 +341,13 @@ final class MeditationSession {
             holdAwake(false);
         } else if (DONE.equals(finalStatus) && Ambience.audible()) {
             // Let the background sounds fade away slowly, and stay awake until they have.
-            Ambience.session(false, 5f);
+            Ambience.session(false, false, 5f);
             main.postDelayed(() -> {
                 holdAwake(false);
                 if (current == null) MeditationService.stop();
             }, 5500);
         } else {
-            Ambience.session(false, 0.6f);
+            Ambience.session(false, false, 0.6f);
             holdAwake(false);
             MeditationService.stop();
         }
@@ -315,7 +355,7 @@ final class MeditationSession {
 
     private void emit(String next) {
         status = next;
-        if (listener != null) listener.onState(status, index);
+        if (listener != null) listener.onState(status, index, PLAYING.equals(next) && gapEndsAt == 0);
         if (!ended) MeditationService.refresh(app);
     }
 
@@ -349,7 +389,10 @@ final class MeditationSession {
                 .setOnAudioFocusChangeListener(change -> main.post(() -> onFocusChange(change)))
                 .build();
         }
-        return am.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+        if (am.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return false;
+        // Granted outright, the phone sends no "you may be loud again": undo any quietening here.
+        Ambience.duck(false);
+        return true;
     }
 
     private void onFocusChange(int change) {
@@ -369,6 +412,8 @@ final class MeditationSession {
     }
 
     private void abandonFocus() {
+        // Once the speaker is given up, nobody will say when to be loud again.
+        Ambience.duck(false);
         if (focusRequest == null || Build.VERSION.SDK_INT < 26) return;
         AudioManager am = (AudioManager) app.getSystemService(Context.AUDIO_SERVICE);
         am.abandonAudioFocusRequest(focusRequest);
