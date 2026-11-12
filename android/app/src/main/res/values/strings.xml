@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Anxiety Companion</string>
+    <string name="title_activity_main">Anxiety Companion</string>
+    <string name="package_name">com.anxietycompanion.app</string>
+    <string name="custom_url_scheme">com.anxietycompanion.app</string>
+</resources>
