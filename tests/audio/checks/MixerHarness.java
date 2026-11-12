@@ -39,6 +39,7 @@ public class MixerHarness {
         int sr = 32000; float[] tone = new float[sr * 8];
         for (int i = 0; i < tone.length; i++) tone[i] = (i >= sr * 6 ? 30000f : 12000f) / 32768f * (float) Math.sin(2 * Math.PI * i / 32.0);
         Wav.write(new File(dir, "drone.wav"), tone, sr);
+        Wav.write(new File(dir, "second.wav"), tone, sr);
         AssetManager.ROOT = a[0] + "/";
         Context c = new Context();
 
@@ -93,6 +94,20 @@ public class MixerHarness {
         check("resumed: sound within a second", peak(leftFrom(m)) > 5000, peak(leftFrom(m)));
         Ambience.session(false, false, 0.3f); waitStopped();
         check("ended: thread stopped, loop freed", !running() && loaded() == 0, loaded());
+        // Stopped while paused: no mixer is running to let go of the loops on its way out.
+        Ambience.session(true, true, 0.3f); m = mark(); waitFrames(m, sr);
+        Ambience.session(false, true, 0.3f); waitStopped();
+        check("paused again: loop kept", !running() && loaded() == 1, loaded());
+        Ambience.session(false, false, 0.3f);
+        check("stopped while paused: loop freed at once", !running() && loaded() == 0, loaded());
+        // A sound switched off under a paused meditation is let go; the ones still on are kept.
+        Ambience.setLevels(c, lv("drone", 1.0, "second", 0.5)); Ambience.session(true, true, 0.3f); m = mark(); waitFrames(m, sr);
+        Ambience.session(false, true, 0.3f); waitStopped();
+        int both = loaded();
+        Ambience.setLevels(c, lv("drone", 1.0));
+        check("paused with one sound switched off: only the other is kept", both == 2 && loaded() == 1, both + " -> " + loaded());
+        Ambience.session(false, false, 0.3f);
+        check("and nothing is kept once it is stopped", loaded() == 0, loaded());
 
         System.out.println("6. Ducking is forgotten when a session starts or resumes");
         Ambience.duck(true); Ambience.session(true, true, 0.3f);

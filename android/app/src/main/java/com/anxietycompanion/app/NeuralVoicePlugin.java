@@ -368,7 +368,9 @@ public class NeuralVoicePlugin extends Plugin {
     // screen or the phone is locked, and comes back with the app. A meditation is not affected.
     @Override
     protected void handleOnStop() {
-        Ambience.visible(false);
+        // A finished activity's stop can arrive after a relaunched one has started; only the newest
+        // plugin (the one whose listener is registered) speaks for the screen.
+        if (MeditationSession.listener == sessionListener) Ambience.visible(false);
     }
 
     @Override

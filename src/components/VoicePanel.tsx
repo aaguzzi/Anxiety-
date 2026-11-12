@@ -68,6 +68,11 @@ export default function VoicePanel({ settings, onChange, duringMeditation, onClo
   const requestRef = useRef(0);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+  // A meditation waiting behind this screen may still have lines queued for the voice, and stop()
+  // drops everything queued on the phone, not only this screen's sample. halt() leaves the queue alone.
+  const overMeditationRef = useRef(!!duringMeditation);
+  overMeditationRef.current = !!duringMeditation;
+  const silence = () => (overMeditationRef.current ? engineRef.current?.halt() : engineRef.current?.stop());
 
   useEffect(() => {
     installedModels().then(setInstalled);
@@ -75,7 +80,7 @@ export default function VoicePanel({ settings, onChange, duringMeditation, onClo
     playSounds(true);
     return () => {
       requestRef.current++;
-      engineRef.current?.stop();
+      silence();
       playSounds(false);
     };
   }, []);
@@ -90,12 +95,12 @@ export default function VoicePanel({ settings, onChange, duringMeditation, onClo
   async function stopSample() {
     requestRef.current++;
     setListening(null);
-    await engineRef.current?.stop();
+    await silence();
   }
 
   // Everything here is chosen by ear: picking a voice or letting go of a slider plays the sample.
   async function playSample(using: Settings) {
-    await engineRef.current?.stop();
+    await silence();
     const request = ++requestRef.current;
     setListening(using.voiceChoice);
     setNote(null);

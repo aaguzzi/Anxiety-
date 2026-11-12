@@ -165,6 +165,8 @@ export default function MeditationPlayer({
     }
     if (state.status === 'error') {
       // The natural voice failed part-way: carry on from here with the phone's own voice.
+      // The phone has already ended that session; this stops listening to it.
+      backgroundRef.current.stop().catch(() => {});
       backgroundRef.current = null;
       engineRef.current = fallbackEngine(settingsRef.current.speechSpeed);
       setVoiceName(engineRef.current.voice.label);
@@ -396,7 +398,10 @@ export default function MeditationPlayer({
       return;
     }
     keepScreenAwake(active);
-    if (!voicePanelOpen) playSounds(active);
+    // Not while a start is still being set up: until the phone has been asked to play, nothing has
+    // asked other apps to be quiet, and the speed test or the notification prompt can take a while.
+    // A meditation the phone plays switches its own sounds on once it has the speaker.
+    if (!voicePanelOpen) playSounds(status === 'playing');
   }, [status, voicePanelOpen]);
 
   useEffect(() => {

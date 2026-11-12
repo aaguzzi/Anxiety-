@@ -162,9 +162,28 @@ final class Ambience {
         return false;
     }
 
+    /**
+     * Call with LOCK held, when no mixer is running or the mixer itself is leaving: drops the loops
+     * nothing is going to play. A paused meditation keeps the ones that are switched on, to resume
+     * without a gap.
+     */
+    private static void letGo() {
+        for (Layer layer : LAYERS.values()) {
+            if (layer.target <= 0 || !sessionAlive) {
+                layer.data = null;
+                layer.gain = 0;
+            }
+        }
+    }
+
     /** Call with LOCK held, after anything that decides whether sound should be coming out. */
     private static void wake() {
-        if (!wanted()) return;
+        if (!wanted()) {
+            // No mixer is running to let go of the loops on its way out (a meditation stopped
+            // while it was paused, say): do it here.
+            if (thread == null) letGo();
+            return;
+        }
         for (Layer layer : LAYERS.values()) {
             if (layer.target > 0 && layer.data == null && !layer.loading) load(layer);
         }
@@ -192,8 +211,9 @@ final class Ambience {
             }
             synchronized (LOCK) {
                 layer.loading = false;
-                // Nothing is playing any more: don't hold on to a loop nobody is listening to.
-                if (loop != null && (thread != null || sessionAlive)) layer.data = loop;
+                // Nothing is playing any more, or this sound was switched off under a paused
+                // meditation: don't hold on to a loop nobody is listening to.
+                if (loop != null && (thread != null || (sessionAlive && layer.target > 0))) layer.data = loop;
             }
         });
     }
@@ -259,14 +279,8 @@ final class Ambience {
                 synchronized (LOCK) {
                     on = wanted();
                     if (!on && master <= 0f && !held) {
-                        // Faded out with nothing more to play: let go of the loops. A paused
-                        // meditation keeps the ones that are switched on, to resume without a gap.
-                        for (Layer layer : LAYERS.values()) {
-                            if (layer.target <= 0 || !sessionAlive) {
-                                layer.data = null;
-                                layer.gain = 0;
-                            }
-                        }
+                        // Faded out with nothing more to play.
+                        letGo();
                         thread = null;
                         return;
                     }

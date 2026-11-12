@@ -4,6 +4,7 @@
 # numpy, and a JDK. Usage: tests/run.sh [folder for screenshots]
 cd "$(dirname "$0")/.."
 SHOTS=${1:-$(mktemp -d)}
+mkdir -p "$SHOTS"
 PORT=4173
 fail=0
 

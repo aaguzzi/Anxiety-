@@ -83,6 +83,7 @@ const SCRIPT = 'TITLE: Evening Unwind\n' + ['one', 'two', 'three', 'four'].map(w
   await phone(() => __phone.sessionError());
   check('the phone voice carries on from the same sentence', await until(() => __phone.spoken.length > 0) && (await phone(() => __phone.spoken[0])) === S2, await phone(() => __phone.spoken[0]));
   check('with the screen kept on and the sounds kept playing', await until(() => __phone.keepAwake === true && __phone.preview === true), await phone(() => ({ awake: __phone.keepAwake, preview: __phone.preview })));
+  check('and stops listening to the session that failed', await until(() => (__phone.listeners['NeuralVoice:sessionState'] || []).length === 0), await phone(() => (__phone.listeners['NeuralVoice:sessionState'] || []).length));
 
   // ── D. The natural voice fails while the app is off screen
   await fresh(); await open();
@@ -98,6 +99,8 @@ const SCRIPT = 'TITLE: Evening Unwind\n' + ['one', 'two', 'three', 'four'].map(w
   // ── E. Voice & sounds opened while the phone is still being asked to start (permission prompt up)
   await fresh({}, { permission: 'prompt', permissionDelay: 700 }); await open();
   await wait(150);
+  // Nothing has asked other apps to be quiet yet, so the sounds must not have started either.
+  check('no sounds before the phone has been asked to play', (await phone(() => __phone.preview)) === false && (await phone(() => __phone.count('NeuralVoice.startSession'))) === 0);
   await page.locator('.player-voice-btn').click();
   await page.locator('.voice-panel').waitFor();
   await wait(1300);
@@ -131,6 +134,16 @@ const SCRIPT = 'TITLE: Evening Unwind\n' + ['one', 'two', 'three', 'four'].map(w
   check('keeps the screen on and plays the sounds itself', h.awake === true && h.preview === true, h);
   check('no listener left behind from the failed start', h.listeners === 0, h.listeners);
   check('the file that is played is the file that was prepared', h.id === h.prepared, h);
+  // A sample played from Voice & sounds over this meditation must not cancel the lines queued for it.
+  const callsBefore = await phone(() => __phone.calls.length);
+  await page.locator('.player-voice-btn').click();
+  await page.locator('.voice-panel').waitFor();
+  await page.locator('.voice-panel .voice-pick[aria-pressed="true"]').click();
+  await wait(120);
+  await page.locator('.voice-panel .back-btn').click();
+  await wait(400);
+  const stops = await page.evaluate(n => __phone.calls.slice(n).filter(c => c.name === 'NeuralVoice.stop').map(c => c.options), callsBefore);
+  check('a sample over an in-app meditation leaves its queued lines alone', stops.length > 0 && stops.every(o => o && o.cancelQueued === false), stops);
 
   // ── I. A meditation finishes being written while the app is off screen
   await fresh();
