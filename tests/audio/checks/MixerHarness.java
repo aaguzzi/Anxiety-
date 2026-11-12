@@ -133,8 +133,9 @@ public class MixerHarness {
         System.out.println("7. The real sounds, all nine at full volume");
         AssetManager.ROOT = real;
         Map<String, Float> all = new HashMap<>(); for (String id : new String[] {"rain", "ocean", "stream", "wind", "bowls", "drone", "brown", "pink", "white"}) all.put(id, 1f);
-        Ambience.setLevels(c, all); m = mark(); Ambience.preview(true); waitFrames(m, sr * 70);
-        l = leftFrom(m + sr * 5); r = rightFrom(m + sr * 5);
+        // Measure only once all nine are playing: reading them takes a moment, longer on a busy machine.
+        Ambience.setLevels(c, all); Ambience.preview(true); waitLoader(); m = mark(); waitFrames(m, sr * 70);
+        int to7 = mark(); synchronized (AudioTrack.SINK) { l = Arrays.copyOfRange(AudioTrack.left, m + sr * 5, to7); r = Arrays.copyOfRange(AudioTrack.right, m + sr * 5, to7); }
         check("nine loops loaded", loaded() == 9, loaded());
         check("no clipped samples in 65 s (left, right)", clipped(l) == 0 && clipped(r) == 0, clipped(l) + ", " + clipped(r));
         check("peaks at or under the ceiling", peak(l) <= ceiling + 1 && peak(r) <= ceiling + 1, peak(l) + ", " + peak(r));
