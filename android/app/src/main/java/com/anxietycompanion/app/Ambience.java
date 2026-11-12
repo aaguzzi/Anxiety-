@@ -44,7 +44,7 @@ final class Ambience {
         volatile short[] data;
         /** Guarded by LOCK. */
         boolean loading;
-        // Mixer thread only.
+        // Mixer thread only, except that gain is reset under LOCK when no mixer is running.
         float gain;
         int pos;
 
@@ -200,11 +200,17 @@ final class Ambience {
         layer.loading = true;
         LOADER.execute(() -> {
             short[] loop = null;
+            synchronized (LOCK) {
+                // Switched off while it waited its turn: say so with the lock held, so that
+                // switching it back on asks for it again.
+                if (layer.target <= 0) {
+                    layer.loading = false;
+                    return;
+                }
+            }
             try {
-                if (layer.target > 0) {
-                    try (InputStream in = context.getAssets().open(ASSETS + "/" + layer.id + ".wav")) {
-                        loop = Wav.read(in).pcm;
-                    }
+                try (InputStream in = context.getAssets().open(ASSETS + "/" + layer.id + ".wav")) {
+                    loop = Wav.read(in).pcm;
                 }
             } catch (Throwable e) {
                 // This build doesn't include that sound; the layer stays silent.

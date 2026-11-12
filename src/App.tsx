@@ -61,6 +61,8 @@ export default function App() {
   const [focusKey, setFocusKey] = useState(false);
   // Voice & sounds can be opened from Settings; closing it goes back there.
   const [voiceFromSettings, setVoiceFromSettings] = useState(false);
+  // The meditation behind Voice & sounds has lines queued for the voice that a sample must not cancel.
+  const [voiceKeepsQueue, setVoiceKeepsQueue] = useState(false);
   const screenRef = useRef<HTMLDivElement>(null);
   const [update, setUpdate] = useState<AppUpdate | null>(null);
 
@@ -258,7 +260,7 @@ export default function App() {
           meditation={activeMeditation}
           settings={settings}
           voicePanelOpen={overlay === 'voice'}
-          onOpenVoice={() => setOverlay('voice')}
+          onOpenVoice={linesQueued => { setVoiceKeepsQueue(linesQueued); setOverlay('voice'); }}
           onChangeSettings={setSettings}
           onSaveBench={bench => setSettings(prev => ({ ...prev, voiceBench: bench }))}
           onClose={() => setActiveMeditation(null)}
@@ -299,6 +301,7 @@ export default function App() {
           settings={settings}
           onChange={setSettings}
           duringMeditation={!!activeMeditation}
+          keepQueued={!!activeMeditation && voiceKeepsQueue}
           onClose={closeVoice}
         />
       )}

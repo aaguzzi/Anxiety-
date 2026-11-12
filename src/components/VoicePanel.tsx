@@ -13,6 +13,8 @@ interface Props {
   onChange: (update: (prev: Settings) => Settings) => void;
   /** Opened over a meditation that is waiting to carry on. */
   duringMeditation?: boolean;
+  /** That meditation has lines queued for the voice, which stopping a sample must not cancel. */
+  keepQueued?: boolean;
   onClose: () => void;
 }
 
@@ -60,7 +62,7 @@ function amount(v: number): string {
 }
 
 /** Voice, pace and background sounds in one place, reachable from the Meditate tab and the player. */
-export default function VoicePanel({ settings, onChange, duringMeditation, onClose }: Props) {
+export default function VoicePanel({ settings, onChange, duringMeditation, keepQueued, onClose }: Props) {
   const [installed, setInstalled] = useState<InstalledModels | null>(null);
   const [listening, setListening] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -68,11 +70,12 @@ export default function VoicePanel({ settings, onChange, duringMeditation, onClo
   const requestRef = useRef(0);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
-  // A meditation waiting behind this screen may still have lines queued for the voice, and stop()
-  // drops everything queued on the phone, not only this screen's sample. halt() leaves the queue alone.
-  const overMeditationRef = useRef(!!duringMeditation);
-  overMeditationRef.current = !!duringMeditation;
-  const silence = () => (overMeditationRef.current ? engineRef.current?.halt() : engineRef.current?.stop());
+  // stop() drops everything queued on the phone, not only this screen's sample: that is what makes
+  // tapping through several voices quick. When the meditation behind this screen has lines of its
+  // own queued, halt() is used instead, which leaves the queue alone.
+  const keepQueuedRef = useRef(!!keepQueued);
+  keepQueuedRef.current = !!keepQueued;
+  const silence = () => (keepQueuedRef.current ? engineRef.current?.halt() : engineRef.current?.stop());
 
   useEffect(() => {
     installedModels().then(setInstalled);

@@ -13,7 +13,8 @@ interface Props {
   settings: Settings;
   /** The Voice & sounds screen is open on top of the player. */
   voicePanelOpen: boolean;
-  onOpenVoice: () => void;
+  /** linesQueued: this screen still has lines waiting to be generated that a sample must not cancel. */
+  onOpenVoice: (linesQueued: boolean) => void;
   onChangeSettings: (update: (prev: Settings) => Settings) => void;
   onSaveBench: (bench: VoiceBench) => void;
   onClose: () => void;
@@ -346,7 +347,10 @@ export default function MeditationPlayer({
     } else {
       afterPanelRef.current = 'nothing';
     }
-    onOpenVoice();
+    // Only when this screen is timing a natural voice itself are there lines queued on the phone
+    // that stopping a sample would cancel. (After 'restart' everything is queued again anyway.)
+    onOpenVoice(!backgroundRef.current && afterPanelRef.current !== 'restart'
+      && !!engineRef.current && engineRef.current.voice.id !== 'system');
   }
 
   function toggleSound(id: string) {
@@ -374,7 +378,9 @@ export default function MeditationPlayer({
       backgroundRef.current = null;
       engineRef.current?.stop();
       keepScreenAwake(false);
-      playSounds(false);
+      // Voice & sounds, if it is still open (Stop pressed in the notification meanwhile), is
+      // previewing the sounds itself and switches them off when it closes.
+      if (!panelOpenRef.current) playSounds(false);
       listener.then(l => l.remove());
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

@@ -26,6 +26,18 @@ public class MixerHarness {
     static short[] rightFrom(int from) { synchronized (AudioTrack.SINK) { return Arrays.copyOfRange(AudioTrack.right, from, AudioTrack.n); } }
     static void waitFrames(int from, int frames) throws Exception { long end = System.currentTimeMillis() + 20000; while (mark() - from < frames && System.currentTimeMillis() < end) Thread.sleep(2); }
     static void waitStopped() throws Exception { long end = System.currentTimeMillis() + 20000; while (running() && System.currentTimeMillis() < end) Thread.sleep(2); }
+    /** Waits until no loop is still being read: only then is the number of loaded loops final. */
+    static void waitLoader() throws Exception {
+        long end = System.currentTimeMillis() + 20000;
+        while (System.currentTimeMillis() < end) {
+            boolean busy = false;
+            synchronized (field("LOCK")) {
+                for (Object layer : ((Map<?, ?>) field("LAYERS")).values()) { Field f = layer.getClass().getDeclaredField("loading"); f.setAccessible(true); busy |= f.getBoolean(layer); }
+            }
+            if (!busy) return;
+            Thread.sleep(2);
+        }
+    }
     /** Loudest sample in each whole cycle of a tone that takes 32 samples a cycle. */
     static int[] envelope(short[] x) { int[] e = new int[x.length / 32]; for (int i = 0; i < e.length; i++) { int m = 0; for (int j = 0; j < 32; j++) m = Math.max(m, Math.abs(x[i * 32 + j])); e[i] = m; } return e; }
     static int peak(short[] x) { int m = 0; for (short v : x) m = Math.max(m, Math.abs(v)); return m; }
@@ -52,7 +64,8 @@ public class MixerHarness {
         System.out.println("2. Preview: an overloading passage is turned down smoothly, never clipped");
         int m = mark(); Ambience.preview(true); waitFrames(m, sr * 26);
         check("mixer thread runs at audio priority", running() && android.os.Process.lastPriority == android.os.Process.THREAD_PRIORITY_AUDIO, android.os.Process.lastPriority);
-        short[] l = leftFrom(m + sr * 9), r = rightFrom(m + sr * 9); // skip the fade-in and the first loop
+        // Skip the fade-in and the first loop; both ears are cut at the same end, as the mixer keeps writing.
+        int to = mark(); short[] l, r; synchronized (AudioTrack.SINK) { l = Arrays.copyOfRange(AudioTrack.left, m + sr * 9, to); r = Arrays.copyOfRange(AudioTrack.right, m + sr * 9, to); }
         check("no sample at the clipping limit", clipped(l) == 0, clipped(l));
         int ceiling = Math.round(0.92f * 32767f);
         check("loudest sample is at the ceiling, not above", peak(l) <= ceiling + 1 && peak(l) >= ceiling - 40, peak(l) + " vs " + ceiling);
@@ -69,6 +82,9 @@ public class MixerHarness {
         check("quiet passage is only turned down ahead of the loud one, to about 0.80", minQuiet >= 11900 && minQuiet <= 12200, minQuiet);
 
         System.out.println("3. Leaving the screen stops a preview, with a fade, and frees the loop");
+        // Hide early in the tone's quiet stretch, so the tone's own step up to loud cannot land inside the fade.
+        int wrap = 0; for (int i = 1; i < e.length; i++) if (e[i - 1] - e[i] > 3000) wrap = m + sr * 9 + i * 32; // where the tone last started over
+        for (long end = System.currentTimeMillis() + 5000; System.currentTimeMillis() < end;) { int at = (mark() - wrap) % (sr * 8); if (at > sr / 2 && at < sr * 3) break; Thread.onSpinWait(); }
         m = mark(); Ambience.visible(false); waitStopped();
         short[] tail = leftFrom(m);
         check("mixer thread stopped", !running(), null);
@@ -81,14 +97,14 @@ public class MixerHarness {
         Thread.sleep(200); check("stays silent while hidden", mark() == m + tail.length, null);
 
         System.out.println("4. Coming back resumes the preview");
-        m = mark(); Ambience.visible(true); waitFrames(m, sr * 2);
+        Ambience.visible(true); waitLoader(); m = mark(); waitFrames(m, sr * 2);
         check("sound again", peak(leftFrom(m)) > 10000, peak(leftFrom(m)));
         Ambience.preview(false); waitStopped();
         check("stopped and freed after the preview", !running() && loaded() == 0, null);
 
         System.out.println("5. A paused meditation keeps its loops; an ended one lets them go");
         Ambience.session(true, true, 0.3f); m = mark(); waitFrames(m, sr * 2);
-        Ambience.session(false, true, 0.3f); waitStopped();
+        Ambience.session(false, true, 0.3f); waitStopped(); waitLoader();
         check("paused: thread stopped, loop kept", !running() && loaded() == 1, loaded());
         m = mark(); Ambience.session(true, true, 0.3f); waitFrames(m, sr);
         check("resumed: sound within a second", peak(leftFrom(m)) > 5000, peak(leftFrom(m)));
@@ -96,13 +112,13 @@ public class MixerHarness {
         check("ended: thread stopped, loop freed", !running() && loaded() == 0, loaded());
         // Stopped while paused: no mixer is running to let go of the loops on its way out.
         Ambience.session(true, true, 0.3f); m = mark(); waitFrames(m, sr);
-        Ambience.session(false, true, 0.3f); waitStopped();
+        Ambience.session(false, true, 0.3f); waitStopped(); waitLoader();
         check("paused again: loop kept", !running() && loaded() == 1, loaded());
         Ambience.session(false, false, 0.3f);
         check("stopped while paused: loop freed at once", !running() && loaded() == 0, loaded());
         // A sound switched off under a paused meditation is let go; the ones still on are kept.
         Ambience.setLevels(c, lv("drone", 1.0, "second", 0.5)); Ambience.session(true, true, 0.3f); m = mark(); waitFrames(m, sr);
-        Ambience.session(false, true, 0.3f); waitStopped();
+        Ambience.session(false, true, 0.3f); waitStopped(); waitLoader();
         int both = loaded();
         Ambience.setLevels(c, lv("drone", 1.0));
         check("paused with one sound switched off: only the other is kept", both == 2 && loaded() == 1, both + " -> " + loaded());

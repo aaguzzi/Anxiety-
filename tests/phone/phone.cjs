@@ -54,6 +54,20 @@ const SCRIPT = 'TITLE: Evening Unwind\n' + ['one', 'two', 'three', 'four'].map(w
   check('Pause reaches the phone', await until(() => __phone.session.status === 'paused') && await page.locator('.player-voice').getByText('Paused').isVisible());
   await page.getByRole('button', { name: 'Resume', exact: true }).click();
   check('Resume reaches the phone', await until(() => __phone.session.status === 'playing'));
+  // Over a meditation the phone is playing, nothing of the player's is queued: tapping through
+  // voices must still drop the samples that were overtaken, or the last one waits behind them all.
+  const tapsFrom = await phone(() => __phone.calls.length);
+  await page.locator('.player-voice-btn').click();
+  await page.locator('.voice-panel').waitFor();
+  await page.locator('.voice-panel').getByRole('button', { name: /^Clara/ }).click();
+  await page.locator('.voice-panel').getByRole('button', { name: /^Iris/ }).click();
+  await wait(200);
+  const tapStops = await page.evaluate(n => __phone.calls.slice(n).filter(c => c.name === 'NeuralVoice.stop').map(c => c.options), tapsFrom);
+  check('tapping through voices over a phone-played meditation drops the overtaken samples', tapStops.some(o => !o || o.cancelQueued !== false), tapStops);
+  await page.locator('.voice-panel').getByRole('button', { name: /^Ruth(?!,)/ }).click();
+  await wait(200);
+  await page.locator('.voice-panel .back-btn').click();
+  await until(() => __phone.session && __phone.session.status === 'playing');
   // The clock must start again with a sentence that is replayed from its start.
   await caption(S2).waitFor({ timeout: 6000 });
   const before = await page.locator('.player-time span').first().textContent();
@@ -182,6 +196,18 @@ const SCRIPT = 'TITLE: Evening Unwind\n' + ['one', 'two', 'three', 'four'].map(w
   check('Play again starts a new session from the top', await until(() => __phone.sessionsStarted === 2 && __phone.session && __phone.session.status === 'playing' && __phone.last('NeuralVoice.startSession').options.startIndex === 0));
   await phone(() => __phone.sessionStoppedFromNotification());
   check('Stop from the notification closes the player', await until(() => !document.querySelector('.player-overlay')));
+  // Stop pressed in the notification while Voice & sounds is open: the panel stays, still previewing.
+  await fresh(); await open();
+  await caption(S0).waitFor({ timeout: 5000 });
+  await page.locator('.player-voice-btn').click();
+  await page.locator('.voice-panel').waitFor();
+  await until(() => __phone.preview === true);
+  await phone(() => __phone.sessionStoppedFromNotification());
+  await until(() => !document.querySelector('.player-overlay'));
+  await wait(200);
+  check('Stop while Voice & sounds is open leaves the panel previewing the sounds', await page.locator('.voice-panel').count() === 1 && (await phone(() => __phone.preview)) === true, await phone(() => __phone.preview));
+  await page.locator('.voice-panel .back-btn').click();
+  check('and closing the panel switches them off', await until(() => __phone.preview === false));
 
   check('no page errors', errors.length === 0, errors.slice(0, 3));
   console.log(results.join('\n'));
