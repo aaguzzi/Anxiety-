@@ -62,10 +62,19 @@ skipped and must be resolved before the feature ships to other people.
   Voice & sounds avoids cancelling when it is open over a meditation. Giving each caller its own
   counter would be cleaner.
 - **The custom-meditation prompt has been trialled, not listened to.** Test writers produced scripts
-  from it for six requests (three to twenty minutes) and judges scored them against a rubric; the
-  prompt was revised twice from what they found. Lengths came out within a few percent of what was
-  asked. It has not yet been run through the real API in the app, and nobody has listened to a
-  generated script.
+  from it for six requests (three to twenty minutes) and judges scored them; it was revised three
+  times from what they found. An over-detailed revision (shipped briefly in 1.14) made scripts do the
+  exercise that was asked for but read like a procedure. The current one is simpler: the app works
+  out a plan for the chosen length (`planFor` in `src/lib/meditationScript.ts`: time for each part,
+  led breaths, long silences) and the prompt says what matters most when points pull against each
+  other. In a blind ranking against the scripts from the two earlier versions it came first for five
+  of six requests and second for the other. Lengths come out within a few percent of what was asked.
+  It has not yet been run through the real API in the app, and nobody has listened to a generated
+  script.
+- **Screens under an open player or panel are not inert.** With a keyboard, and probably a screen
+  reader, the tab underneath can still be operated (for example its Voice & sounds card while a
+  meditation is playing, which leaves the player unpaused). Making the covered content inert wants
+  trying with TalkBack on a device.
 
 ## Tests
 `tests/run.sh` builds the web app and runs every check: the web app in a browser, the web app against
