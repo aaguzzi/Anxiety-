@@ -33,25 +33,46 @@ skipped and must be resolved before the feature ships to other people.
   distributing it inside the app.
 
 ## Known functional limits
-- **Background playback has not been run on a device by the developer tooling**, only compiled and
-  reviewed. Aggressive battery savers (some Samsung, Xiaomi, Huawei phones) may still stop it; the
-  remedy is exempting the app from battery optimisation.
+- **Nothing native has been run on a device by the developer tooling.** Background playback, the
+  sound mixer, seeking and resuming part-way were compiled, reviewed twice by independent reviewers,
+  and exercised on a desktop against stand-ins for the Android classes (`tests/`, see below).
+  Aggressive battery savers (some Samsung, Xiaomi, Huawei phones) may still stop background
+  playback; the remedy is exempting the app from battery optimisation.
 - **If the natural voice fails mid-session** the player falls back to the phone voice with in-app
-  timing, which stops when the screen turns off.
+  timing, which stops when the screen turns off. If it fails while the app is off screen or paused,
+  it waits, paused, and carries on from the same sentence when Resume is pressed.
+- **System media controls (Android 13 and later).** Stop is a custom action, so it shows wherever the
+  full player is drawn (lock screen, notification shade in portrait) but not in the three-button
+  compact player used in landscape. While the first lines are being prepared the main button is a
+  spinner with no Pause, as in the app itself.
 - **Background sounds are generated, not recorded.** `scripts/make-ambience.py` builds the nine loops
-  from shaped noise and tones. They have been checked by measurement (loudness, seamless looping) but
-  not by ear by the developer tooling; real, clearly licensed recordings of rain, waves and a stream
-  would sound more natural and are worth sourcing before release.
+  from shaped noise and tones. They have been checked by measurement (loudness, seamless looping, no
+  clicks) but not by ear by the developer tooling; real, clearly licensed recordings of rain, waves
+  and a stream would sound more natural and are worth sourcing before release.
+- **Background sounds under in-app timing do not ask other apps to be quiet.** A meditation the phone
+  plays itself takes the speaker first and then starts its sounds; the fallback that times lines
+  from the screen, and the preview in Voice & sounds, just play.
 - **Background sounds and the softer voice processing are Android-only.** The web build shows the
   controls but plays neither.
-- **The sound mixer, seeking, and resuming part-way have not been run on a device**, only compiled,
-  reviewed and (for the audio processing itself) run on a desktop.
 - **Voice softening is set per voice from measurements** (treble relative to Ruth), not by listening.
 - **The clock in the player is an estimate** from word counts, so it can drift from the real time.
-- **The custom-meditation prompt was rewritten** (settling-in section, word and silence budget, setup
-  options) and has only been checked for format, not by generating and listening to real scripts.
+- **Generated speech is cached per wording.** Rewording a line leaves the old recording in the cache
+  folder until Android trims it or the voice engine version changes.
+- **Cancelling queued speech is app-wide.** The phone has one cancel counter for all queued lines, so
+  Voice & sounds avoids cancelling when it is open over a meditation. Giving each caller its own
+  counter would be cleaner.
+- **The custom-meditation prompt has been trialled, not listened to.** Test writers produced scripts
+  from it for six requests (three to twenty minutes) and judges scored them against a rubric; the
+  prompt was revised twice from what they found. Lengths came out within a few percent of what was
+  asked. It has not yet been run through the real API in the app, and nobody has listened to a
+  generated script.
+
+## Tests
+`tests/run.sh` builds the web app and runs every check: the web app in a browser, the web app against
+a stand-in phone (the code paths that only exist on Android), and the real mixer and playback-session
+classes on a desktop against stand-ins for the Android classes. They prove the logic, not the phone.
 
 ## App size
-- The test APK is about 365 MB: the studio voice now uses the full-precision vocoder (101 MB, for a
+- The test APK is about 370 MB: the studio voice now uses the full-precision vocoder (101 MB, for a
   cleaner sound) and the background sounds add 35 MB. Google Play limits the base download, so for
   release the voice models need to move to Play Asset Delivery or an in-app download.
