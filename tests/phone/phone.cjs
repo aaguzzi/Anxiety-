@@ -158,6 +158,19 @@ const SCRIPT = 'TITLE: Evening Unwind\n' + ['one', 'two', 'three', 'four'].map(w
   await wait(400);
   const stops = await page.evaluate(n => __phone.calls.slice(n).filter(c => c.name === 'NeuralVoice.stop').map(c => c.options), callsBefore);
   check('a sample over an in-app meditation leaves its queued lines alone', stops.length > 0 && stops.every(o => o && o.cancelQueued === false), stops);
+  // The Meditate tab's own Voice & sounds card is still reachable under the player by keyboard.
+  const callsBeforeCard = await phone(() => __phone.calls.length);
+  await page.evaluate(() => document.querySelector('.voice-card').click());
+  await page.locator('.voice-panel').waitFor();
+  await page.locator('.voice-panel').getByRole('button', { name: /^Clara/ }).click();
+  await page.locator('.voice-panel').getByRole('button', { name: /^Iris/ }).click();
+  await wait(200);
+  await page.locator('.voice-panel').getByRole('button', { name: /^Ruth(?!,)/ }).click();
+  await wait(150);
+  await page.locator('.voice-panel .back-btn').click();
+  await wait(300);
+  const cardStops = await page.evaluate(n => __phone.calls.slice(n).filter(c => c.name === 'NeuralVoice.stop').map(c => c.options), callsBeforeCard);
+  check('opened from the tab under the player, a sample still leaves the queued lines alone', cardStops.length > 0 && cardStops.every(o => o && o.cancelQueued === false), cardStops);
 
   // ── I. A meditation finishes being written while the app is off screen
   await fresh();

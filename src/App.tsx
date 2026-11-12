@@ -62,6 +62,7 @@ export default function App() {
   // Voice & sounds can be opened from Settings; closing it goes back there.
   const [voiceFromSettings, setVoiceFromSettings] = useState(false);
   // The meditation behind Voice & sounds has lines queued for the voice that a sample must not cancel.
+  // Only the player knows; the other ways in (reachable under it by keyboard) assume there are.
   const [voiceKeepsQueue, setVoiceKeepsQueue] = useState(false);
   const screenRef = useRef<HTMLDivElement>(null);
   const [update, setUpdate] = useState<AppUpdate | null>(null);
@@ -106,6 +107,7 @@ export default function App() {
     if (!Capacitor.isNativePlatform()) return;
     const listener = LocalNotifications.addListener('localNotificationActionPerformed', () => {
       setOverlay('none');
+      setVoiceFromSettings(false);
       setActiveExercise(null);
       setActiveMeditation(null);
       setTab('home');
@@ -235,7 +237,7 @@ export default function App() {
               clearPosition(id);
               setMeditations(prev => prev.filter(m => m.id !== id));
             }}
-            onOpenVoice={() => setOverlay('voice')}
+            onOpenVoice={() => { setVoiceKeepsQueue(true); setOverlay('voice'); }}
             onOpenKey={() => { setFocusKey(true); setOverlay('settings'); }}
           />
         )}
@@ -292,7 +294,7 @@ export default function App() {
           onDeleteAll={deleteAllData}
           focusKey={focusKey}
           update={update}
-          onOpenVoice={() => { setFocusKey(false); setVoiceFromSettings(true); setOverlay('voice'); }}
+          onOpenVoice={() => { setFocusKey(false); setVoiceFromSettings(true); setVoiceKeepsQueue(true); setOverlay('voice'); }}
           onClose={() => { setFocusKey(false); setOverlay('none'); }}
         />
       )}

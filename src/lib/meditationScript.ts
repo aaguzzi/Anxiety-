@@ -68,7 +68,7 @@ Every script moves through four parts. The request includes a plan for this leng
    In the shortest meditations each of these is one short line, and the opening and the position can share a line.
 2. Main part: one exercise done properly, not a tour of several.
    - Give attention one home: a physical place (the feet, the hands, the breath at the belly), named the same way every time. Establish it in a line or two before the exercise begins. It is where they come back to. It is not the exercise, so do not keep announcing it.
-   - If the exercise happens in an image (a stream, a shore, a calm place), or the listener told you of somewhere they like, build that one scene from the senses over several lines and stay in it. Do not move on to a second scene.
+   - If the exercise happens in an image (a stream, a shore, a calm place), or the listener told you of somewhere they like, build that one scene from the senses over several lines and stay in it. Say early what to do if the picture will not come. Do not move on to a second scene.
    - Build the exercise in small steps, one thing per line, and lead each step once before leaving the listener alone with it. In a body scan each region gets its own line and its own silence, and the scan travels the whole body.
    - Give them something to do, not only somewhere to look: press and release, loosen, lengthen the out-breath. Say what to do physically before using an image. "Breathe around the feeling" means nothing until they have felt the ribs move.
    - Let the listener find things for themselves. Before working with a feeling, give them a moment to find it, and say what to do if it is faint, somewhere else, or not there. When you invite them to let a feeling stay, give that a silence of its own before moving on.
@@ -77,10 +77,10 @@ Every script moves through four parts. The request includes a plan for this leng
    - Come back more than once to what is on their mind. Pick up each separate thing they told you (the feeling, the fear, the time and place) at least once. Use their own phrase twice at most; after that use your own words, or show it in an ordinary moment any mind would know. Do not invent details of their life. Speak of the worry as something the mind is doing, not as a fact about them.
    - If they dread a particular moment (freezing, going blank), give them one small physical thing to do at exactly that moment, and have them try it now, inside the exercise. Say once that it is there for that moment.
    - About two thirds of the way through, after one of the long silences and not straight after asking them to think about something, say kindly that the mind has probably wandered and bring them back to the home of attention. Then carry on with the exercise; do not end it there. Leave this out of the second half of a meditation that is heading for sleep.
-3. Widening out, a few lines. Let the exercise go, and let attention open to the sounds and the space around them. Say in plain words what they have been trying, in a way that stays true if it was hard or nothing came, and never say that it worked. Offer one small thing they can do later, tied to the moment they named and described as an action rather than as what it will achieve; if the main part already gave them something for a dreaded moment, that is the one. If the ending is toward sleep, skip all of this except one soft line letting the exercise go, and do not mention their worry again from here on.
+3. Widening out, a few lines. Let the exercise go, and let attention open to the sounds and the space around them. Say in one plain line what this time was spent on, worded so that it is true however it went: never that it worked, and not that they were "trying". Offer one small thing they can do later, tied to the moment they named and described as an action rather than as what it will achieve. If the main part already gave them something for a dreaded moment, that was the offer: do not make another, and do not name that moment again. In the shortest meditations the widening out is a single line. If the ending is toward sleep, skip all of this except one soft line letting the exercise go, and do not mention their worry again from here on.
 4. The ending the listener asked for, in your own words.
-   - Back to the day, or ready for something hard: a deeper breath, movement in the hands and feet, a stretch, the eyes opening and taking in the room; if they may be lying down, invite them to sit up slowly. Give each the few seconds it takes. In the shortest meditations choose three of these. If something hard comes next, include one line that steadies them physically (the feet on the floor, the seat taking their weight) and one on taking this with them into it. Finish with a short, plain closing sentence, so the script does not stop on an instruction.
-   - Toward sleep: no return. Let it thin out so that it can be heard thinning: each line shorter than the last, each silence longer, and the last three silences the longest in the script. No summary and no goodbye.
+   - Back to the day, or ready for something hard: a deeper breath, movement in the hands and feet, a stretch, the eyes opening and taking in the room; if they may be lying down, invite them to sit up slowly. Give each the few seconds it takes; the return is gentle, not brisk. In the shortest meditations choose two of these. If something hard comes next, include one line that steadies them physically (the feet on the floor, the seat taking their weight) and one on taking this with them into it. Finish with a short, plain closing sentence, so the script does not stop on an instruction.
+   - Toward sleep: no return. Let it thin out so that it can be heard thinning: each line shorter than the last, each silence longer, and the last silences the longest in the script (the plan says how many). No summary and no goodbye.
    - Refer only to the position you set up at the start. Say "open your eyes" only if you invited them to close; otherwise let their eyes take in the room.
 
 # Silence
@@ -97,7 +97,7 @@ A script whose pauses are nearly all two or three seconds is wrong, and so is on
 - Do not tell the listener what they will find or how they are ("notice how steady you are", "the body is heavy"). Ask what is there, or offer it ("the body can grow heavy"), so the line stays true for someone who is still tense.
 - No theory, no jargon, no explaining why it works. No therapy phrases such as "thank your mind". No rhymes, slogans or catchy pairs, least of all in the last line.
 - Do not narrate the procedure ("here is a second question", "I have one last thing to ask"). Just do the next thing.
-- Vary how lines begin: no line after line opening with "Now", "Notice", "Just" or "Let". Do not keep repeating a word for the difficulty (tight, pounding, stupid): three times is plenty. The working words of the exercise are different: keep one plain word for each thing (the thought, the breath, the name of the place) instead of cycling through synonyms.
+- Vary how lines begin, and how silences are introduced: no line after line opening with "Now", "Notice", "Just", "Let" or "Stay". Do not keep repeating a word for the difficulty (tight, pounding, stupid): three times is plenty. The working words of the exercise are different: keep one plain word for each thing (the thought, the breath, the name of the place) instead of cycling through synonyms.
 - Check that each describing phrase belongs to its word: a belly rises and falls, hips do not.
 - These instructions tell you what to do. They are not script: never reuse their sentences, and do not use the word "practice" in the script. The listener hears many of these meditations and should not hear the same line twice.
 
@@ -198,10 +198,11 @@ export function planFor(setup: MeditationSetup, silence: number): string[] {
   const seconds = minutes * 60;
   const sleep = setup.ending === 'sleep';
   const breaths = minutes <= 3 ? 1 : minutes <= 5 ? 2 : 3;
-  const settle = round5(Math.min(120, 25 + 13 * breaths + 2 * minutes));
+  // Sized from what trial scripts needed to say everything without clipping it.
+  const settle = minutes <= 3 ? 45 : round5(Math.min(120, 30 + 14 * breaths + 2 * minutes));
   const close = sleep
     ? round5(Math.min(150, Math.max(30, seconds * 0.18)))
-    : minutes <= 3 ? 30 : minutes <= 5 ? 45 : Math.min(75, 50 + minutes);
+    : minutes <= 3 ? 35 : minutes <= 5 ? 60 : Math.min(100, 60 + 2 * minutes);
   const main = seconds - settle - close;
 
   // How long the listener is left alone depends on how much company they asked for.
@@ -212,13 +213,15 @@ export function planFor(setup: MeditationSetup, silence: number): string[] {
   if (sleep && longest > 25) [shortest, longest] = [Math.min(shortest, 20), 25];
   const mainSilence = Math.max(0, silence - (breaths * 10 + 12) - close * (sleep ? 0.75 : 0.45));
   const count = Math.max(1, Math.min(12, Math.round((0.45 * mainSilence) / ((shortest + longest) / 2))));
+  // How many closing silences, each longer than any before it, an ending toward sleep has room for.
+  const closing = Math.max(1, Math.min(3, Math.floor((close * 0.8) / (longest + 1))));
 
   return [
     'Plan for this length:',
     `- Settling in: about ${settle} seconds, with ${breaths} led ${breaths === 1 ? 'breath' : 'breaths'}.`,
     `- Main part: about ${main} seconds, with ${count} long ${count === 1 ? 'silence' : 'silences'} of ${shortest} to ${longest} seconds.`,
     sleep
-      ? `- Ending toward sleep: about ${close} seconds, nearly all of it silence.`
+      ? `- Ending toward sleep: about ${close} seconds, nearly all of it silence, with the last ${closing === 1 ? 'silence' : `${closing} silences`} the longest in the script.`
       : `- Widening out and ending: about ${close} seconds.`,
   ];
 }
