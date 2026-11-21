@@ -13,8 +13,10 @@
 
   --text-1: #2A3240;
   --text-2: #5A6475;
-  --text-3: #6B7280;
+  /* The quietest grey for words: 4.7:1 on the page, 4.6:1 on --surface-2, 5.3:1 on --surface. */
+  --text-3: #636976;
 
+  /* Category colours: accents for rings, ticks, bars, borders and icons. */
   --cat-breathing: #5B8FA8;
   --cat-grounding: #6B9E7A;
   --cat-defusion: #8B7DB8;
@@ -22,6 +24,16 @@
   --cat-values: #B8956A;
   --cat-mindfulness: #7A9EB8;
   --cat-action: #8BB870;
+
+  /* The same hues, dark enough for words (4.6:1 or more on the page, the cards and a 16% tint of the
+     colour) and for white words on them (5.9:1 or more). Kept in step with `ink` in categoryMeta. */
+  --cat-breathing-ink: #3F6577;
+  --cat-grounding-ink: #456950;
+  --cat-defusion-ink: #65559B;
+  --cat-acceptance-ink: #904D4D;
+  --cat-values-ink: #7A5D3A;
+  --cat-mindfulness-ink: #43657E;
+  --cat-action-ink: #4B6D36;
 
   /* SOS, and only SOS: the round button, the pill, 'Get help', 'Open SOS'. White on it is 5.48:1. */
   --sos: #965858;
@@ -50,6 +62,24 @@ html, body, #root {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* A word longer than its line (a link, an e-mail address) breaks rather than running out of its
+     box. 'break-word' leaves the boxes' own widths alone; where the person's own words sit in a box
+     sized by its content, the box says 'anywhere' itself (.user-text). */
+  overflow-wrap: break-word;
+}
+
+/* What a field asks for, before anything is typed: as readable as the quietest words (5.3:1). */
+::placeholder {
+  color: var(--text-3);
+  opacity: 1;
+}
+
+/* The person's own words (notes, steps, intentions, their meditations' requests): an address or a
+   link breaks anywhere, so it stays inside its card at any width and text size. The word-break line
+   is for WebViews older than Chrome 80, which ignore 'anywhere'. */
+.user-text {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* ─── App Shell ─────────────────────────────────── */
@@ -70,7 +100,20 @@ html, body, #root {
   /* Room for the end of each tab to scroll clear of the bar and the SOS button above it (both grow
      with the text size): bar + 21px gap + the button (34px + 1.6 x its 15px label) + 10px. */
   padding-bottom: calc(var(--nav-h, 67px) + 65px + 1.5em);
+  /* When the keyboard opens, the phone scrolls the field being typed in into view: this keeps it
+     clear of the bar and the SOS button (should they still be showing) and leaves the room just below
+     the field (its 'Save note' or 'Create meditation') in view too. At most 45% of the screen, so a
+     field still fits above it on a short screen at large text. */
+  scroll-padding-bottom: min(calc(var(--nav-h, 67px) + 65px + 1.5em), 45%);
   -webkit-overflow-scrolling: touch;
+}
+
+/* While a text field on a tab is being typed in (the keyboard is up), the bar and the round SOS
+   button step aside, so they cannot sit over the field or its button (App.tsx sets kb-open). They
+   come back when the field loses focus or the keyboard is put away. */
+.app.kb-open > .nav,
+.app.kb-open > .sos-fab:not(.sos-pill) {
+  display: none;
 }
 
 /* ─── Navigation ─────────────────────────────────── */
@@ -110,7 +153,7 @@ html, body, #root {
   -webkit-tap-highlight-color: transparent;
 }
 
-.nav-tab.active { color: var(--cat-defusion); }
+.nav-tab.active { color: var(--cat-defusion-ink); }
 
 .nav-tab svg {
   width: 22px;
@@ -140,9 +183,18 @@ html, body, #root {
   flex-direction: column;
   gap: 10px;
   -webkit-tap-highlight-color: transparent;
+  /* It is a button: as wide as its list, its words laid out as on a card. */
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
 }
 
 .exercise-card:active { transform: scale(0.98); }
+
+.exercise-card-titles,
+.exercise-card-subtitle,
+.exercise-card-desc { display: block; }
 
 .exercise-card-top {
   display: flex;
@@ -151,9 +203,10 @@ html, body, #root {
   gap: 12px;
 }
 
-.exercise-card-titles { flex: 1; }
+.exercise-card-titles { flex: 1; min-width: 0; }
 
 .exercise-card-title {
+  display: block;
   font-size: 17px;
   font-weight: 700;
   color: var(--text-1);
@@ -191,8 +244,11 @@ html, body, #root {
   font-weight: 600;
 }
 
+/* A pale tint of the category's colour with its dark ink (set inline by CategoryBadge): 4.6:1 or
+   more, where white on the colour itself was 2.3-3.7:1. */
 .badge-cat {
-  color: white;
+  background: var(--surface-2);
+  color: var(--text-1);
 }
 
 .badge-duration {
@@ -293,11 +349,16 @@ html, body, #root {
   gap: 12px;
 }
 
+/* Leaving a screen (back or close, always at top left): a 36px circle to see, in a 48px target to tap.
+   The negative margin keeps the bar laid out as for the 36px circle. */
 .back-btn {
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
+  margin: -6px;
+  padding: 6px;
+  background-clip: content-box;
   border-radius: 50%;
-  background: var(--surface-2);
+  background-color: var(--surface-2);
   border: none;
   display: flex;
   align-items: center;
@@ -448,7 +509,7 @@ html, body, #root {
   font-size: 36px;
   font-weight: 800;
   line-height: 1;
-  color: var(--cat-grounding);
+  color: var(--cat-grounding-ink);
 }
 
 .sense-name {
@@ -506,6 +567,7 @@ html, body, #root {
 .sense-input {
   flex: 1;
   min-width: 0;
+  min-height: 44px;
   padding: 10px 14px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
@@ -559,7 +621,7 @@ html, body, #root {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: var(--cat-grounding);
+  background: var(--cat-grounding-ink); /* white words on it: 6.2:1 */
   border-radius: 60% 0 60% 0;
   padding: 7px 14px;
   font-size: 12px;
@@ -659,7 +721,7 @@ html, body, #root {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--cat-defusion);
+  color: var(--cat-defusion-ink);
   margin-bottom: 6px;
 }
 
@@ -694,7 +756,9 @@ html, body, #root {
 
 .step-row:last-child { border-bottom: none; }
 
-.step-row.inactive { opacity: 0.4; }
+/* Steps still to come are quieter (grey), but readable: 4.6:1 or more, where fading the whole row to
+   40% left them at 1.6-2.2:1. */
+.step-row.inactive .step-title { color: var(--text-3); font-weight: 600; }
 
 .step-num {
   width: 34px;
@@ -765,6 +829,10 @@ html, body, #root {
 }
 
 .domain-card {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  color: var(--text-1);
   background: var(--surface);
   border-radius: var(--radius);
   padding: 16px 14px;
@@ -789,6 +857,7 @@ html, body, #root {
 }
 
 .domain-name {
+  display: block;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-1);
@@ -816,6 +885,7 @@ html, body, #root {
 }
 
 .intention-input {
+  min-height: 44px;
   padding: 12px 14px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1114,15 +1184,6 @@ html, body, #root {
   line-height: 1.5;
 }
 
-.results-section-title {
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-3);
-  margin-bottom: 14px;
-}
-
 .results-exercises {
   display: flex;
   flex-direction: column;
@@ -1175,7 +1236,7 @@ html, body, #root {
   align-items: center;
   gap: 6px;
   background: rgba(184, 149, 106, 0.12);
-  color: var(--cat-values);
+  color: var(--cat-values-ink);
   padding: 6px 12px;
   border-radius: var(--radius-full);
   font-size: 13px;
@@ -1205,6 +1266,12 @@ html, body, #root {
 }
 
 .featured-card {
+  /* A button the width of the page's cards. */
+  display: block;
+  width: calc(100% - 48px);
+  border: none;
+  font: inherit;
+  text-align: left;
   margin: 0 24px 24px;
   padding: 22px 20px;
   border-radius: var(--radius-lg);
@@ -1217,12 +1284,16 @@ html, body, #root {
 
 .featured-card:active { transform: scale(0.98); }
 
+.featured-badge,
+.featured-title,
+.featured-sub { display: block; }
+
 .featured-badge {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  opacity: 0.55;
+  opacity: 0.75; /* 5.5:1 on the card; 0.55 was 3.8:1 */
   margin-bottom: 8px;
 }
 
@@ -1230,6 +1301,8 @@ html, body, #root {
   font-size: 22px;
   font-weight: 800;
   margin-bottom: 6px;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .featured-sub {
@@ -1279,6 +1352,11 @@ html, body, #root {
   padding: 52px 24px 16px;
 }
 
+/* Two levels of headings, kept apart on purpose:
+   - a tab (Home, Check-In, Meditate, Toolbox) has a serif headline (.home-greeting, .q-text,
+     .results-title, .toolbox-title) and its sections are headed in 20px dark sans (.home-section-title);
+   - a screen opened from a tab (an exercise, Settings, Check-in history, Voice & sounds, Welcome) has a
+     sans title (.exercise-title) and small uppercase group labels (.section-label). */
 .toolbox-title {
   font-size: 28px;
   font-weight: 800;
@@ -1306,6 +1384,7 @@ html, body, #root {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 44px;
   padding: 8px 16px;
   border-radius: var(--radius-full);
   font-size: 13px;
@@ -1368,6 +1447,7 @@ html, body, #root {
   color: var(--text-2);
   line-height: 1.6;
   max-width: 300px;
+  min-width: 0;
 }
 
 /* ─── Helpers ─────────────────────────────────────── */
@@ -1567,10 +1647,10 @@ html, body, #root {
 
 .settings-btn {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 40px;
-  height: 40px;
+  top: 14px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
   background: var(--surface-2);
@@ -1594,6 +1674,9 @@ html, body, #root {
   padding: 8px 0;
 }
 
+/* At large text the time goes under its label rather than past the card's edge. */
+.settings-row-wrap { flex-wrap: wrap; row-gap: 8px; }
+
 .settings-row + .settings-row { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 16px; }
 
 .settings-row-title {
@@ -1611,24 +1694,33 @@ html, body, #root {
 
 .settings-row-sub a { color: var(--text-1); font-weight: 700; }
 
+/* A 50x30 track to see (drawn by ::before) in a button 44px tall to tap. */
 .switch {
   position: relative;
   width: 50px;
-  height: 30px;
+  height: 44px;
   flex-shrink: 0;
-  border-radius: var(--radius-full);
   border: none;
-  background: var(--border-focus);
+  background: none;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.switch::before {
+  content: '';
+  position: absolute;
+  inset: 7px 0;
+  border-radius: var(--radius-full);
+  background: var(--border-focus);
   transition: background var(--transition);
 }
 
-.switch.on { background: var(--cat-grounding); }
+.switch.on::before { background: var(--cat-grounding); }
 .switch:disabled { opacity: 0.6; }
 
 .switch-knob {
   position: absolute;
-  top: 3px;
+  top: 10px;
   left: 3px;
   width: 24px;
   height: 24px;
@@ -1641,6 +1733,8 @@ html, body, #root {
 .switch.on .switch-knob { transform: translateX(20px); }
 
 .time-input {
+  min-height: 44px;
+  max-width: 100%;
   padding: 8px 12px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1650,12 +1744,20 @@ html, body, #root {
   background: var(--surface);
 }
 
+/* A card-wide button (the daily-habit nudge) or a card with its own link (the update notice). Its
+   pill moves under the words when large text leaves no room beside them. */
 .reminder-prompt {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 10px 14px;
+  width: calc(100% - 48px);
   margin: 0 24px 24px;
   padding: 16px 18px;
+  border: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
   background: var(--surface);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
@@ -1664,17 +1766,32 @@ html, body, #root {
 }
 
 .reminder-prompt-icon { font-size: 24px; }
-.reminder-prompt-body { flex: 1; }
+.reminder-prompt-body { flex: 1 1 7em; min-width: 0; }
+.reminder-prompt-title,
+.reminder-prompt-sub { display: block; }
 .reminder-prompt-title { font-size: 15px; font-weight: 700; color: var(--text-1); }
 .reminder-prompt-sub { font-size: 13px; color: var(--text-2); }
 
 .reminder-prompt-cta {
+  margin-left: auto;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-1);
   padding: 6px 12px;
   border-radius: var(--radius-full);
   background: var(--surface-2);
+}
+
+.update-card { cursor: default; }
+
+/* The update notice's link: a pill 44px tall to tap. */
+.update-card a.reminder-prompt-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 16px;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 /* ─── Check-in intensity ──────────────────────────── */
@@ -1703,7 +1820,7 @@ html, body, #root {
 .intensity-slider {
   width: 100%;
   accent-color: var(--cat-defusion);
-  height: 32px;
+  height: 44px;
 }
 
 .intensity-ends {
@@ -1842,6 +1959,27 @@ html, body, #root {
 }
 
 /* ─── History ─────────────────────────────────────── */
+/* Check-ins by month, newest first, each month headed by its name and a summary line that stays at
+   the top while its check-ins scroll under it. HistoryView draws 60 at a time ('Show older'). */
+.history-month + .history-month { margin-top: 20px; }
+
+.history-month-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 0 10px;
+  background: var(--bg);
+}
+
+.history-month-title { margin: 0; }
+
+.history-month-summary {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
 .history-list {
   display: flex;
   flex-direction: column;
@@ -1902,37 +2040,35 @@ a.btn { text-decoration: none; }
 
 .exercise-scroll { padding-bottom: 110px; }
 
+/* 5-4-3-2-1's tick: a 30px circle to see (drawn by ::before) in a 48px button to tap. The negative
+   margin keeps the row laid out as for the 30px circle, clear of the field beside it. */
 button.sense-check {
   position: relative;
-  width: 30px;
-  height: 30px;
+  width: 48px;
+  height: 48px;
+  margin: -9px;
   padding: 0;
+  border: none;
+  border-radius: 50%;
   background: transparent;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* A 48px circle to tap, around the 30px one that shows (clear of the field beside it). */
 button.sense-check::before {
   content: '';
   position: absolute;
-  inset: -9px;
+  inset: 9px;
   border-radius: 50%;
+  border: 2px solid var(--border-focus);
+  transition: background var(--transition), border-color var(--transition);
 }
 
-button.sense-check.done { background: var(--cat-grounding); }
+button.sense-check.done { background: transparent; }
+button.sense-check.done::after { position: relative; } /* the tick, over the filled circle */
+button.sense-check.done::before { background: var(--cat-grounding); border-color: var(--cat-grounding); }
 
 .sos-label { color: var(--sos); }
-
-/* Leaving SOS or an exercise: the same 36px circle as everywhere, in a 48px target. */
-.sos-overlay .back-btn,
-.exercise-modal .back-btn {
-  width: 48px;
-  height: 48px;
-  margin: -6px;
-  padding: 6px;
-  background-clip: content-box;
-}
 
 /* 'Get help' alone in the top-right corner, a full-size target. */
 .sos-help-btn {
@@ -2129,6 +2265,7 @@ button.sense-check.done { background: var(--cat-grounding); }
 }
 
 .chip {
+  min-height: 44px; /* a target to tap, however short its label */
   padding: 8px 14px;
   border-radius: var(--radius-full);
   border: 1.5px solid var(--border);
@@ -2176,8 +2313,11 @@ button.sense-check.done { background: var(--cat-grounding); }
 
 .voice-actions .btn { padding: 10px 18px; font-size: 14px; }
 
+/* A meditation's row: its play button (title and words) and its delete X. While deleting is being
+   confirmed, Delete and Keep take their own line under the words, so the title keeps its width. */
 .saved-med {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   padding: 6px 6px 6px 0;
 }
@@ -2215,15 +2355,40 @@ button.sense-check.done { background: var(--cat-grounding); }
   flex-direction: column;
 }
 
-.saved-med-text .settings-row-sub {
-  white-space: nowrap;
+/* What the person asked for: up to three lines, all of it after 'Show more'. */
+.saved-med-prompt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.saved-med-prompt.open {
+  display: block;
+  -webkit-line-clamp: none;
+  overflow: visible;
+}
+
+/* Under the words, lined up with them (the play circle is 40px, after a 16px edge and a 14px gap). */
+.saved-med-more {
+  flex-basis: 100%;
+  min-height: 44px;
+  padding: 0 16px 0 70px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  text-decoration: underline;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .saved-med-remove {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   border: none;
   background: none;
@@ -2234,8 +2399,14 @@ button.sense-check.done { background: var(--cat-grounding); }
   justify-content: center;
 }
 
-.saved-med-confirm { display: flex; flex-shrink: 0; }
-.saved-med-confirm .btn { padding: 8px 10px; font-size: 14px; }
+.saved-med-confirm {
+  display: flex;
+  flex-basis: 100%;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0 0 2px 16px;
+}
+.saved-med-confirm .btn { min-height: 44px; padding: 8px 14px; font-size: 14px; }
 
 .player-overlay { z-index: 210; }
 
@@ -2430,6 +2601,7 @@ button.sense-check.done { background: var(--cat-grounding); }
 
 .voice-listen {
   flex-shrink: 0;
+  min-height: 44px;
   margin-right: 8px;
   padding: 7px 12px;
   border-radius: var(--radius-full);
@@ -2454,7 +2626,6 @@ button.sense-check.done { background: var(--cat-grounding); }
 }
 .voice-group .voice-list { margin-top: 6px; }
 
-a.update-card { text-decoration: none; margin-top: 0; }
 .mt-4 { margin-top: 16px; }
 
 .advanced-toggle { margin-top: 14px; padding: 10px 0; font-size: 14px; color: var(--text-2); }
@@ -2465,9 +2636,12 @@ span.chip { cursor: default; }
 .voice-panel { z-index: 230; }
 .block { display: block; }
 
+/* Lined up with the cards below it (their 24px gutter). Not width:auto: a button would shrink to its
+   words. No border: a button's default outset border made it look selected. */
 .voice-card {
-  width: 100%;
-  margin-bottom: 20px;
+  width: calc(100% - 48px);
+  margin: 0 24px 20px;
+  border: none;
   padding: 14px 16px;
   display: flex;
   align-items: center;
@@ -2517,7 +2691,7 @@ span.chip { cursor: default; }
   appearance: none;
   display: block;
   width: 100%;
-  height: 36px;
+  height: 44px; /* the track is 6px; this is the height to touch */
   margin: 0;
   background: transparent;
   cursor: pointer;

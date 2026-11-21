@@ -3,32 +3,34 @@ import { ExerciseProps } from '../../types';
 import CompletionScreen, { StepBack, useStepStart, WaitingButton } from './CompletionScreen';
 
 // ─── Make Room ────────────────────────────────────────
+// Each step's colour fills its number while it is the current step, under a white letter: the
+// darker 'ink' shades, so the letter reads (5.9:1 or more).
 const MAKE_ROOM_STEPS = [
   {
     letter: 'N',
     title: 'Notice the thought',
-    color: '#8B7DB8',
+    color: 'var(--cat-defusion-ink)',
     desc: 'Step back from the anxious thought. Instead of "I\'m going to panic," try: "I notice my mind is predicting danger." You don\'t need to fight the thought — just unhook from it.',
     prompt: 'What thought is your mind currently running? Write it, then try labeling it as just a thought.',
   },
   {
     letter: 'A',
     title: 'Allow',
-    color: '#B87A7A',
+    color: 'var(--cat-acceptance-ink)',
     desc: 'Allow the bodily sensations of anxiety to be present — racing heart, tight chest, shaky hands. Don\'t try to stop them. Say to yourself: "I allow this feeling to be here." Resistance amplifies anxiety; allowing reduces it.',
     prompt: 'What sensations are you feeling in your body right now? Describe them without judgment.',
   },
   {
     letter: 'T',
     title: 'Turn toward',
-    color: '#B8956A',
+    color: 'var(--cat-values-ink)',
     desc: 'Instead of escaping the feeling, turn toward it with curiosity: "What is my mind trying to protect me from?" Approach it gently, at your own pace. This is about the feeling, not about putting yourself in real danger — if a situation is genuinely unsafe, or connected to trauma, it\'s okay to step back and work on it with a professional.',
     prompt: 'What is anxiety trying to warn you about? What would happen if you moved toward that fear rather than away?',
   },
   {
     letter: 'E',
     title: 'Engage',
-    color: '#6B9E7A',
+    color: 'var(--cat-grounding-ink)',
     desc: 'Engage with your life. Do the thing anxiety was stopping you from doing — or simply get on with your day. You don\'t need to feel good to take action. Anxiety can ride along.',
     prompt: 'What is one thing you can do right now, even with anxiety present? Make it specific.',
   },
@@ -78,6 +80,7 @@ export function MakeRoom({ onComplete }: ExerciseProps) {
                   <textarea
                     className="step-reflection"
                     placeholder={s.prompt}
+                    aria-label={s.prompt}
                     value={reflections[i]}
                     onChange={e => {
                       const next = [...reflections];
@@ -115,6 +118,7 @@ export function SoftenAllow({ onComplete }: ExerciseProps) {
       title: 'Locate the feeling',
       instruction: 'Bring your attention inward. Where in your body do you feel anxiety or discomfort right now? Chest? Stomach? Throat? Shoulders?',
       placeholder: 'Where do you feel it? (e.g. tight chest, knot in stomach...)',
+      label: 'Where do you feel it?',
       value: location,
       onChange: setLocation,
       next: 'describe' as const,
@@ -126,6 +130,7 @@ export function SoftenAllow({ onComplete }: ExerciseProps) {
       title: 'Describe it',
       instruction: 'Observe the sensation with curiosity. If this feeling had a size, shape, weight, color, or texture — what would it be? Describing it creates a bit of distance.',
       placeholder: 'Describe the sensation (e.g. tight band, heavy stone, pulsing heat...)',
+      label: 'Describe the sensation',
       value: description,
       onChange: setDescription,
       next: 'soften' as const,
@@ -213,11 +218,13 @@ export function SoftenAllow({ onComplete }: ExerciseProps) {
   return (
     <div ref={stepRef}>
       <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', marginBottom: 16 }}>{p.title}</div>
-      <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.7, marginBottom: 20 }}>{p.instruction}</p>
+      <p id="soften-instruction" style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.7, marginBottom: 20 }}>{p.instruction}</p>
       <input
         type="text"
         className="label-input"
         placeholder={p.placeholder}
+        aria-label={p.label}
+        aria-describedby="soften-instruction"
         value={p.value}
         onChange={e => p.onChange(e.target.value)}
       />

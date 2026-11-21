@@ -2,6 +2,7 @@ import { Exercise, CheckinEntry, PracticeHistory, Settings } from '../types';
 import { exercises } from '../data/exercises';
 import { remindersSupported } from '../lib/reminders';
 import { AppUpdate } from '../lib/update';
+import { lastNDays, localDateKey } from '../lib/dates';
 import ExerciseCard from './ExerciseCard';
 import WeekChart from './WeekChart';
 
@@ -88,6 +89,11 @@ export default function Home({
   const featuredExercise = exercises.find(e => e.id === config.featuredId)!;
   const quickExercises = config.quickIds.map(id => exercises.find(e => e.id === id)!).filter(Boolean);
 
+  // The chart covers the last 7 days: someone whose check-ins are all older is told so and offered one,
+  // rather than shown an empty chart.
+  const weekKeys = new Set(lastNDays(7).map(d => localDateKey(d)));
+  const checkedInThisWeek = checkins.some(c => weekKeys.has(localDateKey(new Date(c.at))));
+
   return (
     <div>
       <div className="home-hero">
@@ -109,60 +115,78 @@ export default function Home({
         )}
       </div>
 
-      {update && (
-        <a className="reminder-prompt update-card" href={update.url} target="_blank" rel="noopener noreferrer">
-          <span className="reminder-prompt-icon">⬇️</span>
-          <div className="reminder-prompt-body">
-            <div className="reminder-prompt-title">Version {update.versionName} is available</div>
-            <div className="reminder-prompt-sub">Download it, then open the file to update. Your data is kept.</div>
-          </div>
-          <span className="reminder-prompt-cta">Update</span>
-        </a>
-      )}
-
       <div className="quote-block">
         <div className="quote-text">"{quote.text}"</div>
         <div className="quote-source">{quote.source}</div>
       </div>
 
-      <div
+      <button
+        type="button"
         className="featured-card"
         onClick={() => onOpenExercise(featuredExercise)}
       >
-        <div className="featured-badge">Featured Practice</div>
-        <div className="featured-title">{featuredExercise.title}</div>
-        <div className="featured-sub">{featuredExercise.subtitle}</div>
-        <button className="featured-action">
+        <span className="featured-badge">Featured Practice</span>
+        <span className="featured-title">{featuredExercise.title}</span>
+        <span className="featured-sub">{featuredExercise.subtitle}</span>
+        <span className="featured-action">
           Start · {featuredExercise.duration}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
             <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-        </button>
-      </div>
+        </span>
+      </button>
+
+      {/* After the practice, not above it: a newer version matters less than what the person came for.
+          Only 'Update' opens the download, so a tap on the words does not leave the app. */}
+      {update && (
+        <div className="reminder-prompt update-card">
+          <span className="reminder-prompt-icon" aria-hidden="true">⬇️</span>
+          <span className="reminder-prompt-body">
+            <span className="reminder-prompt-title">Version {update.versionName} is available</span>
+            <span className="reminder-prompt-sub">Download it, then open the file to update. Your data is kept.</span>
+          </span>
+          <a
+            className="reminder-prompt-cta"
+            href={update.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Update to version ${update.versionName}`}
+          >
+            Update
+          </a>
+        </div>
+      )}
 
       {remindersSupported() && !settings.reminderEnabled && (
-        <div className="reminder-prompt" onClick={onOpenSettings}>
-          <span className="reminder-prompt-icon">🔔</span>
-          <div className="reminder-prompt-body">
-            <div className="reminder-prompt-title">Make it a daily habit</div>
-            <div className="reminder-prompt-sub">Get a gentle reminder to recenter each day.</div>
-          </div>
+        <button type="button" className="reminder-prompt" onClick={onOpenSettings}>
+          <span className="reminder-prompt-icon" aria-hidden="true">🔔</span>
+          <span className="reminder-prompt-body">
+            <span className="reminder-prompt-title">Make it a daily habit</span>
+            <span className="reminder-prompt-sub">Get a gentle reminder to recenter each day.</span>
+          </span>
           <span className="reminder-prompt-cta">Set up</span>
-        </div>
+        </button>
       )}
 
       <div className="home-section">
         <div className="home-section-title">Your week</div>
         <div className="card week-card">
-          {checkins.length > 0 ? (
+          {checkedInThisWeek ? (
             <>
               <WeekChart checkins={checkins} history={history} />
               <button className="btn btn-ghost w-full" onClick={onOpenHistory}>View check-in history</button>
             </>
           ) : (
             <div className="week-empty">
-              <p>Check in to start seeing patterns in how you feel and what helps.</p>
+              <p>
+                {checkins.length > 0
+                  ? 'No check-ins in the last 7 days. Check in to see how this week is going.'
+                  : 'Check in to start seeing patterns in how you feel and what helps.'}
+              </p>
               <button className="btn btn-primary mt-4" onClick={onStartCheckin}>Do a check-in</button>
+              {checkins.length > 0 && (
+                <button className="btn btn-ghost w-full mt-2" onClick={onOpenHistory}>View check-in history</button>
+              )}
             </div>
           )}
         </div>

@@ -158,19 +158,21 @@ export default function CheckIn({ onOpenSOS, onOpenExercise, onSaveCheckin, onUp
           </div>
         )}
 
-        <div className="results-section-title">Recommended for you</div>
+        <div className="home-section-title">Recommended for you</div>
         <div className="results-exercises">
           {recommended.map(ex => (
             <ExerciseCard key={ex.id} exercise={ex} onClick={onOpenExercise} />
           ))}
         </div>
 
-        <div className="results-section-title">Add a note (optional)</div>
+        <div className="home-section-title" id="note-title">Add a note (optional)</div>
         <div className="card settings-card mb-6">
-          <div className="settings-row-sub mb-4">Saved: anxiety {level}/10. What's on your mind, or what happened just before?</div>
+          <div className="settings-row-sub mb-4" id="note-help">Saved: anxiety {level}/10. What's on your mind, or what happened just before?</div>
           <textarea
             className="form-textarea w-full"
             placeholder="e.g. Big meeting this afternoon, didn't sleep well..."
+            aria-labelledby="note-title"
+            aria-describedby="note-help"
             value={note}
             onChange={e => { setNote(e.target.value); setNoteSaved(false); }}
           />

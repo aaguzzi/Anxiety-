@@ -165,7 +165,7 @@ export function BodyScan({ onComplete }: ExerciseProps) {
         ))}
       </div>
 
-      <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cat-grounding)', marginBottom: 10 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cat-grounding-ink)', marginBottom: 10 }}>
         {regionIdx + 1} of {BODY_REGIONS.length}
       </div>
 

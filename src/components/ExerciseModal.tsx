@@ -71,7 +71,7 @@ export default function ExerciseModal({ exercise, onClose, onReachedEnd }: Props
           </button>
           <span
             className="exercise-cat-label"
-            style={{ color: meta.color }}
+            style={{ color: meta.ink }}
           >
             {meta.emoji} {meta.label}
           </span>

@@ -79,7 +79,7 @@ export default function LeavesOnStream({ onComplete }: ExerciseProps) {
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: 13,
-            color: 'var(--text-3)',
+            color: 'var(--text-2)', /* the quietest grey is too faint on the stream's blue */
             fontStyle: 'italic',
           }}>
             the stream is waiting...

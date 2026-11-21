@@ -39,7 +39,7 @@ export default function ValuesCompass({ onComplete }: ExerciseProps) {
       <CompletionScreen>
         <span className="completion-icon">🧭</span>
         <div className="completion-title">Compass set.</div>
-        <div className="completion-msg">
+        <div className="completion-msg user-text">
           {selectedDomains.map(d => (
             <div key={d.id} style={{ marginBottom: 12, textAlign: 'left' }}>
               <strong>{d.emoji} {d.name}:</strong>{' '}
@@ -67,8 +67,9 @@ export default function ValuesCompass({ onComplete }: ExerciseProps) {
         <div className="values-intentions">
           {selectedDomains.map(d => (
             <div className="intention-row" key={d.id}>
-              <label className="intention-label">{d.emoji} {d.name}</label>
+              <label className="intention-label" htmlFor={`intention-${d.id}`}>{d.emoji} {d.name}</label>
               <input
+                id={`intention-${d.id}`}
                 type="text"
                 className="intention-input"
                 placeholder={`I want to show up as... / I value...`}
@@ -96,14 +97,16 @@ export default function ValuesCompass({ onComplete }: ExerciseProps) {
 
       <div className="values-domains">
         {DOMAINS.map(d => (
-          <div
+          <button
+            type="button"
             key={d.id}
             className={`domain-card ${selected.includes(d.id) ? 'selected' : ''}`}
+            aria-pressed={selected.includes(d.id)}
             onClick={() => toggleDomain(d.id)}
           >
-            <span className="domain-emoji">{d.emoji}</span>
-            <div className="domain-name">{d.name}</div>
-          </div>
+            <span className="domain-emoji" aria-hidden="true">{d.emoji}</span>
+            <span className="domain-name">{d.name}</span>
+          </button>
         ))}
       </div>
 

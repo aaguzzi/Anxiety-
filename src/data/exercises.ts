@@ -164,12 +164,15 @@ export const exercises: Exercise[] = [
   },
 ];
 
-export const categoryMeta: Record<Category, { label: string; color: string; description: string; emoji: string }> = {
-  breathing: { label: 'Breathe', color: '#5B8FA8', description: 'Slow down with your breath', emoji: '🌬️' },
-  grounding: { label: 'Ground', color: '#6B9E7A', description: 'Anchor in the present', emoji: '🌿' },
-  defusion: { label: 'Defuse', color: '#8B7DB8', description: 'Create space from thoughts', emoji: '🍃' },
-  acceptance: { label: 'Accept', color: '#B87A7A', description: 'Open up to difficult feelings', emoji: '🌊' },
-  values: { label: 'Values', color: '#B8956A', description: 'Connect with what matters', emoji: '🧭' },
-  mindfulness: { label: 'Mindful', color: '#7A9EB8', description: 'Observe with awareness', emoji: '☁️' },
-  action: { label: 'Act', color: '#8BB870', description: 'Take a values-based step', emoji: '🌱' },
+// color: the category's accent (borders, ticks, rings). ink: the same hue dark enough for words, on
+// the page, on a card and on a pale tint of the colour (4.6:1 or more); the --cat-*-ink tokens in
+// index.css hold the same values.
+export const categoryMeta: Record<Category, { label: string; color: string; ink: string; description: string; emoji: string }> = {
+  breathing: { label: 'Breathe', color: '#5B8FA8', ink: '#3F6577', description: 'Slow down with your breath', emoji: '🌬️' },
+  grounding: { label: 'Ground', color: '#6B9E7A', ink: '#456950', description: 'Anchor in the present', emoji: '🌿' },
+  defusion: { label: 'Defuse', color: '#8B7DB8', ink: '#65559B', description: 'Create space from thoughts', emoji: '🍃' },
+  acceptance: { label: 'Accept', color: '#B87A7A', ink: '#904D4D', description: 'Open up to difficult feelings', emoji: '🌊' },
+  values: { label: 'Values', color: '#B8956A', ink: '#7A5D3A', description: 'Connect with what matters', emoji: '🧭' },
+  mindfulness: { label: 'Mindful', color: '#7A9EB8', ink: '#43657E', description: 'Observe with awareness', emoji: '☁️' },
+  action: { label: 'Act', color: '#8BB870', ink: '#4B6D36', description: 'Take a values-based step', emoji: '🌱' },
 };

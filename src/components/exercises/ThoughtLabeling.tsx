@@ -48,10 +48,11 @@ export function ThoughtLabeling({ onComplete }: ExerciseProps) {
       </p>
 
       <div className="label-input-group">
-        <label style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', display: 'block', marginBottom: 8 }}>
+        <label htmlFor="thought" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', display: 'block', marginBottom: 8 }}>
           Write a current anxious thought:
         </label>
         <input
+          id="thought"
           type="text"
           className="label-input"
           placeholder="e.g. I'm going to fail this..."
@@ -71,18 +72,18 @@ export function ThoughtLabeling({ onComplete }: ExerciseProps) {
         <div className="label-transform">
           <div className="label-box">
             <div className="label-box-tag">Step 1 — Defusion</div>
-            <div className="label-box-text">
+            <div className="label-box-text user-text">
               I'm having the thought that <em>{asEmbeddedThought(thought)}</em>.
             </div>
           </div>
           <div className="label-box">
             <div className="label-box-tag">Step 2 — Deeper defusion</div>
-            <div className="label-box-text">
+            <div className="label-box-text user-text">
               I notice I'm having the thought that <em>{asEmbeddedThought(thought)}</em>.
             </div>
           </div>
           <div className="label-box" style={{ borderColor: 'var(--cat-grounding)' }}>
-            <div className="label-box-tag" style={{ color: 'var(--cat-grounding)' }}>Notice</div>
+            <div className="label-box-tag" style={{ color: 'var(--cat-grounding-ink)' }}>Notice</div>
             <div className="label-box-text" style={{ fontSize: 14, fontStyle: 'normal', fontFamily: 'inherit' }}>
               How does it feel different to observe the thought rather than be inside it?
             </div>
@@ -118,13 +119,15 @@ export function NameTheStory({ onComplete }: ExerciseProps) {
       </p>
 
       <div style={{ marginBottom: 24 }}>
-        <label style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', display: 'block', marginBottom: 8 }}>
+        <label htmlFor="story-name" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', display: 'block', marginBottom: 8 }}>
           What is your mind's recurring anxiety story?
         </label>
-        <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 12 }}>
+        <p id="story-examples" style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 12 }}>
           Examples: "The I'm not good enough story", "The Something bad will happen story", "The I can't cope story"
         </p>
         <input
+          id="story-name"
+          aria-describedby="story-examples"
           type="text"
           className="label-input"
           placeholder='The "___" story'
@@ -137,7 +140,7 @@ export function NameTheStory({ onComplete }: ExerciseProps) {
         <div>
           <div className="label-box" style={{ marginBottom: 20 }}>
             <div className="label-box-tag">Your practice phrase</div>
-            <div className="label-box-text" style={{ fontSize: 18 }}>
+            <div className="label-box-text user-text" style={{ fontSize: 18 }}>
               "Oh, there goes {/^the\b/i.test(storyName.trim()) ? '' : 'the '}{storyName.trim().replace(/^The\b/, 'the')} again."
             </div>
           </div>

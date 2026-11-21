@@ -119,6 +119,51 @@ export default function App() {
     screenRef.current?.scrollTo(0, 0);
   }, [tab]);
 
+  // While a text field on a tab is being typed in, the bottom bar and the round SOS button step aside
+  // (.app.kb-open), so they cannot sit over the field or its button above the keyboard. They come back
+  // when the field loses focus, and also when the keyboard is put away (Android's Back) while the
+  // field keeps focus: that is seen as the web view growing back to its height without the keyboard.
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const TEXT_FIELD = 'textarea, input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=time])';
+    const KEYBOARD = 150; // the web view this much shorter than without the keyboard: the keyboard is up
+    let fullHeight = window.innerHeight;
+    let keyboardSeen = false; // the keyboard has been seen up since the field got focus
+    let timer = 0;
+    const update = (resized: boolean) => {
+      const el = document.activeElement;
+      const field = el instanceof HTMLElement && el.matches(TEXT_FIELD) && !!el.closest('.screen');
+      const h = window.innerHeight;
+      if (!field) {
+        if (resized) fullHeight = h; // the latest height with no keyboard asked for
+        keyboardSeen = false;
+        setTyping(false);
+        return;
+      }
+      fullHeight = Math.max(fullHeight, h);
+      const keyboardUp = h < fullHeight - KEYBOARD;
+      if (keyboardUp) keyboardSeen = true;
+      // The keyboard has just come up: make sure the field is in view, clear of the screen's bottom
+      // (.screen's scroll-padding), if the phone has not already scrolled it there.
+      if (resized && keyboardUp) requestAnimationFrame(() => el.scrollIntoView({ block: 'nearest' }));
+      // Before the keyboard is seen (it may cover the web view rather than shrink it), focus alone counts.
+      setTyping(keyboardUp || !keyboardSeen);
+    };
+    // Focus moves between fields as focusout then focusin: decide once it has landed.
+    const later = () => { window.clearTimeout(timer); timer = window.setTimeout(() => update(false), 0); };
+    const onFocusIn = () => { keyboardSeen = window.innerHeight < fullHeight - KEYBOARD; later(); };
+    const onResize = () => update(true);
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', later);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', later);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
   // Lives here, not in the Meditate tab, so leaving the tab can't lose (or double-charge for) a script in flight.
   const createMeditation = useCallback(async (prompt: string, setup: MeditationSetup): Promise<boolean> => {
     if (writing.busy) return false;
@@ -190,7 +235,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app">
+    <div className={`app${typing ? ' kb-open' : ''}`}>
       <div className="screen" ref={screenRef}>
         {tab === 'home' && (
           <Home

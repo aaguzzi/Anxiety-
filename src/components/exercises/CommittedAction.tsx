@@ -22,7 +22,7 @@ export default function OneSmallStep({ onComplete }: ExerciseProps) {
       <CompletionScreen>
         <span className="completion-icon">🌱</span>
         <div className="completion-title">A step forward.</div>
-        <div style={{ width: '100%', background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '20px', fontSize: 14, color: 'var(--text-2)', lineHeight: 1.8, textAlign: 'left' }}>
+        <div className="user-text" style={{ width: '100%', background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '20px', fontSize: 14, color: 'var(--text-2)', lineHeight: 1.8, textAlign: 'left' }}>
           <div style={{ marginBottom: 12 }}>
             <strong style={{ color: 'var(--text-1)' }}>What I'm committed to:</strong><br />
             {form.step}
@@ -56,9 +56,11 @@ export default function OneSmallStep({ onComplete }: ExerciseProps) {
 
       <div className="step-form">
         <div className="form-group">
-          <label className="form-label">What is anxiety stopping you from doing?</label>
-          <div className="form-hint">A conversation, a task, a decision, something you've been avoiding...</div>
+          <label className="form-label" htmlFor="oss-blocking">What is anxiety stopping you from doing?</label>
+          <div className="form-hint" id="oss-blocking-hint">A conversation, a task, a decision, something you've been avoiding...</div>
           <textarea
+            id="oss-blocking"
+            aria-describedby="oss-blocking-hint"
             className="form-textarea"
             placeholder="e.g. Sending that email I've been putting off for a week..."
             value={form.blocking}
@@ -67,9 +69,11 @@ export default function OneSmallStep({ onComplete }: ExerciseProps) {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Why does this matter to you?</label>
-          <div className="form-hint">Connect it to a value — not a should, but a genuine care.</div>
+          <label className="form-label" htmlFor="oss-value">Why does this matter to you?</label>
+          <div className="form-hint" id="oss-value-hint">Connect it to a value — not a should, but a genuine care.</div>
           <textarea
+            id="oss-value"
+            aria-describedby="oss-value-hint"
             className="form-textarea"
             placeholder="e.g. Because I value being reliable, and this person deserves a response..."
             value={form.value}
@@ -78,11 +82,13 @@ export default function OneSmallStep({ onComplete }: ExerciseProps) {
         </div>
 
         <div className="form-group">
-          <label className="form-label">
+          <label className="form-label" htmlFor="oss-step">
             What is ONE small step you can take today? <span className="form-required">(needed to continue)</span>
           </label>
-          <div className="form-hint">Make it concrete and achievable in the next 24 hours.</div>
+          <div className="form-hint" id="oss-step-hint">Make it concrete and achievable in the next 24 hours.</div>
           <textarea
+            id="oss-step"
+            aria-describedby="oss-step-hint"
             className="form-textarea"
             placeholder="e.g. Write a draft of the email, even if I don't send it..."
             value={form.step}
@@ -91,9 +97,11 @@ export default function OneSmallStep({ onComplete }: ExerciseProps) {
         </div>
 
         <div className="form-group">
-          <label className="form-label">When and where will you do it?</label>
-          <div className="form-hint">Deciding exactly when and where makes it easier to follow through.</div>
+          <label className="form-label" htmlFor="oss-when">When and where will you do it?</label>
+          <div className="form-hint" id="oss-when-hint">Deciding exactly when and where makes it easier to follow through.</div>
           <input
+            id="oss-when"
+            aria-describedby="oss-when-hint"
             type="text"
             className="form-input"
             placeholder="e.g. Today at 3pm, at my desk, before checking email..."

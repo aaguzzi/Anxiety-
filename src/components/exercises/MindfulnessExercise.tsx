@@ -103,7 +103,7 @@ export function PresentMoment({ onComplete }: ExerciseProps) {
         <div className="completion-msg">
           You just landed in the present moment. Carry your intention forward — not as pressure, but as a gentle compass.
         </div>
-        <div style={{ width: '100%', background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '16px 20px', fontSize: 14, color: 'var(--text-2)', lineHeight: 1.7, textAlign: 'left' }}>
+        <div className="user-text" style={{ width: '100%', background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '16px 20px', fontSize: 14, color: 'var(--text-2)', lineHeight: 1.7, textAlign: 'left' }}>
           {answers.doing.trim() && <><strong>Right now:</strong> {answers.doing}<br /></>}
           {answers.noticing.trim() && <><strong>Noticing:</strong> {answers.noticing}<br /></>}
           {answers.intention.trim() && <><strong>Intention:</strong> {answers.intention}</>}
@@ -121,9 +121,10 @@ export function PresentMoment({ onComplete }: ExerciseProps) {
 
       <div className="anchor-questions">
         <div className="anchor-q">
-          <div className="anchor-q-label">1. What am I doing right now?</div>
+          <label className="anchor-q-label" htmlFor="anchor-doing">1. What am I doing right now?</label>
           <div className="anchor-q-sub">Describe the activity, not the worry.</div>
           <textarea
+            id="anchor-doing"
             className="anchor-textarea"
             placeholder="e.g. sitting at my desk, on the bus, at home..."
             value={answers.doing}
@@ -132,9 +133,10 @@ export function PresentMoment({ onComplete }: ExerciseProps) {
         </div>
 
         <div className="anchor-q">
-          <div className="anchor-q-label">2. What do I notice right now?</div>
+          <label className="anchor-q-label" htmlFor="anchor-noticing">2. What do I notice right now?</label>
           <div className="anchor-q-sub">Sights, sounds, sensations, emotions — just as they are.</div>
           <textarea
+            id="anchor-noticing"
             className="anchor-textarea"
             placeholder="e.g. traffic outside, tension in my shoulders, afternoon light..."
             value={answers.noticing}
@@ -143,9 +145,10 @@ export function PresentMoment({ onComplete }: ExerciseProps) {
         </div>
 
         <div className="anchor-q">
-          <div className="anchor-q-label">3. What is my intention for the next hour?</div>
+          <label className="anchor-q-label" htmlFor="anchor-intention">3. What is my intention for the next hour?</label>
           <div className="anchor-q-sub">Not a goal — a way of being. How do you want to show up?</div>
           <textarea
+            id="anchor-intention"
             className="anchor-textarea"
             placeholder="e.g. be present with what I'm doing, be kind to myself..."
             value={answers.intention}

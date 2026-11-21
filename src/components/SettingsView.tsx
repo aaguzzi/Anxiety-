@@ -81,7 +81,7 @@ export default function SettingsView({ settings, onChange, onDeleteAll, focusKey
                       <span className="switch-knob" />
                     </button>
                   </div>
-                  <div className="settings-row">
+                  <div className="settings-row settings-row-wrap">
                     <label className="settings-row-title" htmlFor="reminder-time">Time</label>
                     <input
                       id="reminder-time"
@@ -109,6 +109,7 @@ export default function SettingsView({ settings, onChange, onDeleteAll, focusKey
                 type="text"
                 className="form-input w-full mb-4"
                 placeholder="Name"
+                aria-label="Name"
                 maxLength={60}
                 value={settings.contactName}
                 onChange={e => { const v = e.target.value; onChange(prev => ({ ...prev, contactName: v })); }}
