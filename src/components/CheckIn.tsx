@@ -3,6 +3,7 @@ import { Exercise, Category, CheckinEntry } from '../types';
 import { questions } from '../data/questions';
 import { exercises } from '../data/exercises';
 import ExerciseCard from './ExerciseCard';
+import { Reach988 } from './CrisisLines';
 
 interface Props {
   onOpenSOS: () => void;
@@ -150,10 +151,10 @@ export default function CheckIn({ onOpenSOS, onOpenExercise, onSaveCheckin, onUp
           <div className="card distress-card">
             <div className="distress-title">That sounds really hard right now</div>
             <p className="distress-text">If it feels like too much, start with SOS, or talk to someone.</p>
-            <button className="btn btn-primary w-full" style={{ backgroundColor: 'var(--cat-acceptance)' }} onClick={onOpenSOS}>
+            <button className="btn btn-sos w-full" onClick={onOpenSOS}>
               Open SOS
             </button>
-            <a className="btn btn-outline w-full mt-4" href="tel:988">Call or text 988</a>
+            <Reach988 />
           </div>
         )}
 

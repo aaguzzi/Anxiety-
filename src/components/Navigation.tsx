@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import { Tab } from '../types';
 
 interface Props {
@@ -6,8 +7,26 @@ interface Props {
 }
 
 export default function Navigation({ activeTab, onTabChange }: Props) {
+  const ref = useRef<HTMLElement>(null);
+
+  // The bar is as tall as its labels, which grow with the phone's text size. The SOS button above it
+  // and the space at the end of each tab are placed from its real height (--nav-h on .app).
+  useLayoutEffect(() => {
+    const nav = ref.current;
+    const app = nav?.parentElement;
+    if (!nav || !app) return;
+    const measure = () => {
+      const h = nav.offsetHeight;
+      if (h > 0) app.style.setProperty('--nav-h', `${h}px`); // 0 while hidden: keep the last height
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(nav, { box: 'border-box' });
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <nav className="nav">
+    <nav className="nav" ref={ref}>
       <button
         className={`nav-tab ${activeTab === 'home' ? 'active' : ''}`}
         onClick={() => onTabChange('home')}

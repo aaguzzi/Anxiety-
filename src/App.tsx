@@ -270,10 +270,18 @@ export default function App() {
         />
       )}
 
-      {overlay === 'none' && settings.onboarded && (
+      {/* SOS is on every screen but its own: a round button above the tabs, and a pill in the top-right
+          corner of exercises, the player, Settings, Check-in history and Voice & sounds, whose bottoms
+          are taken by their own buttons. Opening it closes whatever was open. */}
+      {overlay !== 'sos' && settings.onboarded && (
         <button
-          className={`sos-fab ${activeExercise || activeMeditation ? 'in-exercise' : ''}`}
-          onClick={() => { setActiveMeditation(null); setOverlay('sos'); }}
+          className={`sos-fab${activeExercise || activeMeditation || overlay !== 'none' ? ' sos-pill' : ''}`}
+          onClick={() => {
+            setActiveMeditation(null);
+            setVoiceFromSettings(false);
+            setFocusKey(false);
+            setOverlay('sos');
+          }}
           aria-label="SOS: I need help calming down now"
         >
           SOS
@@ -284,7 +292,7 @@ export default function App() {
         <SOSFlow
           settings={settings}
           onClose={() => setOverlay('none')}
-          onFinish={() => { recordPractice('sos'); setOverlay('none'); }}
+          onComplete={() => recordPractice('sos')}
         />
       )}
       {overlay === 'settings' && (

@@ -3,6 +3,7 @@ import { Settings } from '../types';
 import { applyReminder, remindersSupported, ReminderResult } from '../lib/reminders';
 import { formatTime12 } from '../lib/dates';
 import CrisisLines from './CrisisLines';
+import { canDial, showDial } from '../lib/phone';
 import MeditationSettings from './MeditationSettings';
 import { AppUpdate } from '../lib/update';
 import { APP_VERSION_NAME } from '../version';
@@ -116,10 +117,20 @@ export default function SettingsView({ settings, onChange, onDeleteAll, focusKey
                 type="tel"
                 className="form-input w-full"
                 placeholder="Phone number"
+                aria-label="Phone number"
+                aria-describedby={settings.contactPhone.trim() ? 'contact-dial' : undefined}
                 maxLength={30}
                 value={settings.contactPhone}
                 onChange={e => { const v = e.target.value; onChange(prev => ({ ...prev, contactPhone: v })); }}
               />
+              {/* What SOS will dial, so a number written with an extension or two numbers is checked now, not in a crisis. */}
+              {settings.contactPhone.trim() && (
+                <div id="contact-dial" className="settings-row-sub mt-2">
+                  {canDial(settings.contactPhone)
+                    ? <>Will dial: <strong>{showDial(settings.contactPhone)}</strong></>
+                    : 'No number to dial yet: type it with its digits.'}
+                </div>
+              )}
             </div>
           </div>
 

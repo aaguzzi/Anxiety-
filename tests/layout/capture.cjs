@@ -1257,13 +1257,13 @@ scene('sos', {}, async s => {
   await s.ticks({ frozen: true });
   await s.shot('sos-breathe');
   await s.ticks({ frozen: false });
-  await s.tap(s.btn('Skip', s.ov()));
+  await s.tap(s.btn('Skip breathing', s.ov()));
   for (const n of [5, 4, 3, 2, 1]) {
     await s.page.locator('.sos-step-num', { hasText: String(n) }).waitFor();
     await s.shot(`sos-ground-${n}`);
     if (n > 1) await s.tap(s.btn('Next', s.ov()));
   }
-  await s.tap(s.btn('Skip', s.ov()));
+  await s.tap(s.btn('Skip grounding', s.ov()));
   await s.text('Make room for it');
   await s.shot('sos-accept');
   await s.tap(s.btn('Continue', s.ov()));

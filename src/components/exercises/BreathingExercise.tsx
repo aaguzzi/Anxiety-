@@ -8,9 +8,11 @@ interface CycleConfig {
   phases: { phase: Phase; duration: number; label: string }[];
   cycles: number;
   color: string;
+  /** A darker shade for the circle's edge, at least 3:1 against the page so the guide stays visible. */
+  edge: string;
 }
 
-function BreathingVisual({ phase, duration, color }: { phase: Phase; duration: number; color: string }) {
+function BreathingVisual({ phase, duration, color, edge }: { phase: Phase; duration: number; color: string; edge: string }) {
   const isExpanding = phase === 'inhale';
   const isHeld = phase === 'hold-in' || phase === 'hold-out';
   const size = isExpanding ? 160 : isHeld && phase === 'hold-in' ? 160 : 80;
@@ -31,8 +33,8 @@ function BreathingVisual({ phase, duration, color }: { phase: Phase; duration: n
         style={{
           width: size,
           height: size,
-          backgroundColor: color,
-          opacity: 0.18,
+          backgroundColor: color + '59', // a soft fill (35%) inside a solid edge
+          boxShadow: `inset 0 0 0 2px ${edge}`,
           transition: `width ${duration}s ease-in-out, height ${duration}s ease-in-out`,
         }}
       />
@@ -108,6 +110,7 @@ function BreathingEngine({ config, onComplete }: { config: CycleConfig; onComple
         phase={paused ? 'ready' : currentPhase.phase}
         duration={currentPhase.duration}
         color={config.color}
+        edge={config.edge}
       />
 
       <div className="breathing-phase">
@@ -136,7 +139,7 @@ function BreathingEngine({ config, onComplete }: { config: CycleConfig; onComple
           )}
           <button
             className="btn btn-primary breathing-start-btn"
-            style={{ backgroundColor: config.color, minWidth: 180 }}
+            style={{ minWidth: 180 }}
             onClick={begin}
           >
             Begin
@@ -161,6 +164,7 @@ export default function BoxBreathing({ onComplete }: ExerciseProps) {
   const config: CycleConfig = {
     label: 'Box Breathing',
     color: '#5B8FA8',
+    edge: '#3F6F84',
     cycles: 4,
     phases: [
       { phase: 'inhale',   duration: 4, label: 'Breathe in' },
@@ -177,6 +181,7 @@ export function Breathing478({ onComplete }: ExerciseProps) {
   const config: CycleConfig = {
     label: '4-7-8 Breathing',
     color: '#7A9EB8',
+    edge: '#4A7390',
     cycles: 4,
     phases: [
       { phase: 'inhale',  duration: 4, label: 'Breathe in' },
@@ -249,8 +254,8 @@ export function PhysiologicalSigh({ onComplete, autoStart = false, reps = 5 }: E
           style={{
             width: running && step === 2 ? 60 : 120,
             height: running && step === 2 ? 60 : 120,
-            backgroundColor: '#6B9E7A',
-            opacity: 0.18,
+            backgroundColor: '#6B9E7A59', // a soft fill (35%) inside a solid edge (3.98:1 on the page)
+            boxShadow: 'inset 0 0 0 2px #4E7F5C',
             transition: `width ${current.duration}s ease-in-out, height ${current.duration}s ease-in-out`,
           }}
         />
@@ -269,7 +274,7 @@ export function PhysiologicalSigh({ onComplete, autoStart = false, reps = 5 }: E
       {!running && (
         <button
           className="btn btn-primary"
-          style={{ backgroundColor: '#6B9E7A', minWidth: 180 }}
+          style={{ minWidth: 180 }}
           onClick={() => { setRunning(true); setStep(0); setRep(1); }}
         >
           Begin
