@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ExerciseProps } from '../../types';
+import CompletionScreen, { StepBack, useStepStart, WaitingButton } from './CompletionScreen';
 
 // ─── Observer Self ────────────────────────────────────
 const OBSERVER_SLIDES = [
@@ -36,17 +37,18 @@ const OBSERVER_SLIDES = [
 export function ObserverSelf({ onComplete }: ExerciseProps) {
   const [idx, setIdx] = useState(0);
   const [done, setDone] = useState(false);
+  const stepRef = useStepStart<HTMLDivElement>(idx);
 
   if (done) {
     return (
-      <div className="completion-screen">
+      <CompletionScreen>
         <span className="completion-icon">☁️</span>
         <div className="completion-title">The sky remains.</div>
         <div className="completion-msg">
           No matter what weather passes through, the observer in you is always here — steady, spacious, and free.
         </div>
         <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
-      </div>
+      </CompletionScreen>
     );
   }
 
@@ -54,7 +56,7 @@ export function ObserverSelf({ onComplete }: ExerciseProps) {
   const isLast = idx === OBSERVER_SLIDES.length - 1;
 
   return (
-    <div>
+    <div ref={stepRef}>
       <div className="meditation-scene">
         <div key={idx + '-icon'} className="meditation-icon">{slide.icon}</div>
         <div key={idx + '-text'} className="meditation-text">{slide.text}</div>
@@ -70,7 +72,6 @@ export function ObserverSelf({ onComplete }: ExerciseProps) {
 
       <button
         className="btn btn-primary w-full mt-6"
-        style={{ backgroundColor: 'var(--cat-mindfulness)' }}
         onClick={() => {
           if (isLast) setDone(true);
           else setIdx(i => i + 1);
@@ -78,6 +79,7 @@ export function ObserverSelf({ onComplete }: ExerciseProps) {
       >
         {isLast ? 'Complete' : 'Continue'}
       </button>
+      {idx > 0 && <StepBack onClick={() => setIdx(i => i - 1)} />}
     </div>
   );
 }
@@ -91,11 +93,11 @@ export function PresentMoment({ onComplete }: ExerciseProps) {
     setAnswers(a => ({ ...a, [key]: val }));
   }
 
-  const allFilled = Object.values(answers).some(v => v.trim().length > 0);
+  const anyAnswered = Object.values(answers).some(v => v.trim().length > 0);
 
   if (done) {
     return (
-      <div className="completion-screen">
+      <CompletionScreen>
         <span className="completion-icon">🌿</span>
         <div className="completion-title">You're here.</div>
         <div className="completion-msg">
@@ -107,7 +109,7 @@ export function PresentMoment({ onComplete }: ExerciseProps) {
           {answers.intention.trim() && <><strong>Intention:</strong> {answers.intention}</>}
         </div>
         <button className="btn btn-primary mt-4" onClick={onComplete}>Finish</button>
-      </div>
+      </CompletionScreen>
     );
   }
 
@@ -152,14 +154,9 @@ export function PresentMoment({ onComplete }: ExerciseProps) {
         </div>
       </div>
 
-      <button
-        className="btn btn-primary w-full"
-        style={{ backgroundColor: 'var(--cat-mindfulness)', opacity: allFilled ? 1 : 0.4 }}
-        disabled={!allFilled}
-        onClick={() => setDone(true)}
-      >
+      <WaitingButton ready={anyAnswered} need="Answer any one of the questions to continue." onClick={() => setDone(true)}>
         Anchor complete
-      </button>
+      </WaitingButton>
     </div>
   );
 }

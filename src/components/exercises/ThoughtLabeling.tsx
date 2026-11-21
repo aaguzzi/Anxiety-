@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ExerciseProps } from '../../types';
+import CompletionScreen, { useReachedEnd, WaitingButton } from './CompletionScreen';
 
 // Keep the thought verbatim ("…the thought that I'm worthless"); only soften a leading capital
 // on ordinary words so the sentence reads naturally.
@@ -29,14 +30,14 @@ export function ThoughtLabeling({ onComplete }: ExerciseProps) {
 
   if (finished) {
     return (
-      <div className="completion-screen">
+      <CompletionScreen>
         <span className="completion-icon">🍃</span>
         <div className="completion-title">Nicely done.</div>
         <div className="completion-msg">
           Each time you say "I notice I'm having the thought that…" you create a moment of space between you and your mind. That space is freedom.
         </div>
         <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
-      </div>
+      </CompletionScreen>
     );
   }
 
@@ -60,14 +61,9 @@ export function ThoughtLabeling({ onComplete }: ExerciseProps) {
           disabled={submitted}
         />
         {!submitted && (
-          <button
-            className="btn btn-primary w-full mt-4"
-            style={{ backgroundColor: 'var(--cat-defusion)' }}
-            disabled={!thought.trim()}
-            onClick={submit}
-          >
+          <WaitingButton className="mt-4" ready={!!thought.trim()} need="Write a thought first." onClick={submit}>
             Notice it
-          </button>
+          </WaitingButton>
         )}
       </div>
 
@@ -108,6 +104,8 @@ export function ThoughtLabeling({ onComplete }: ExerciseProps) {
 export function NameTheStory({ onComplete }: ExerciseProps) {
   const [storyName, setStoryName] = useState('');
   const [practiced, setPracticed] = useState(false);
+  // Its last part (the phrase practised, and what to do with it) is its end.
+  const reachedEnd = useReachedEnd();
 
   return (
     <div>
@@ -151,8 +149,7 @@ export function NameTheStory({ onComplete }: ExerciseProps) {
           {!practiced ? (
             <button
               className="btn btn-primary w-full"
-              style={{ backgroundColor: 'var(--cat-defusion)' }}
-              onClick={() => setPracticed(true)}
+              onClick={() => { setPracticed(true); reachedEnd(); }}
             >
               I practiced the phrase
             </button>

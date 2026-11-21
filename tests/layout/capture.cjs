@@ -1107,7 +1107,7 @@ const EXERCISES = [
     for (const i of [1, 2, 6]) await s.tap(s.ov().locator('.sense-check').nth(i), `sense check ${i}`);
     await s.shot('ex-5-4-3-2-1-progress', { sweep: false, focus: s.ov().locator('.sense-block').first() });
     await s.field('ex-5-4-3-2-1-progress', inputs.nth(14), 'last-item');
-    await s.tap(s.ov().getByRole('button', { name: /^(Finish|Complete grounding)$/ }), 'Finish');
+    await s.tap(s.ov().getByRole('button', { name: /^(I'm done noticing|Complete grounding)$/ }), "I'm done noticing");
     await s.text("You're here.");
     await s.shot('ex-5-4-3-2-1-done');
   }],

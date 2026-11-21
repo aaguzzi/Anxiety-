@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ExerciseProps } from '../../types';
+import CompletionScreen, { StepBack, useStepStart, WaitingButton } from './CompletionScreen';
 
 // ─── Make Room ────────────────────────────────────────
 const MAKE_ROOM_STEPS = [
@@ -37,6 +38,7 @@ export function MakeRoom({ onComplete }: ExerciseProps) {
   const [step, setStep] = useState(0);
   const [reflections, setReflections] = useState<string[]>(['', '', '', '']);
   const [done, setDone] = useState(false);
+  const stepRef = useStepStart<HTMLDivElement>(step);
 
   function handleNext() {
     if (step < MAKE_ROOM_STEPS.length - 1) {
@@ -48,24 +50,22 @@ export function MakeRoom({ onComplete }: ExerciseProps) {
 
   if (done) {
     return (
-      <div className="completion-screen">
+      <CompletionScreen>
         <span className="completion-icon">🌊</span>
         <div className="completion-title">You faced it.</div>
         <div className="completion-msg">
           Making room isn't about eliminating anxiety. It's about changing your relationship with it — from struggle to willingness. That's where freedom lives.
         </div>
         <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
-      </div>
+      </CompletionScreen>
     );
   }
-
-  const current = MAKE_ROOM_STEPS[step];
 
   return (
     <div>
       <div className="step-list">
         {MAKE_ROOM_STEPS.map((s, i) => (
-          <div key={s.letter} className={`step-row ${i > step ? 'inactive' : ''}`}>
+          <div key={s.letter} className={`step-row ${i > step ? 'inactive' : ''}`} ref={i === step ? stepRef : undefined}>
             <div className={`step-num ${i === step ? 'current' : i < step ? 'done' : ''}`}
               style={i === step ? { backgroundColor: s.color } : {}}>
               {i < step ? '✓' : s.letter}
@@ -94,11 +94,11 @@ export function MakeRoom({ onComplete }: ExerciseProps) {
 
       <button
         className="btn btn-primary w-full"
-        style={{ backgroundColor: current.color }}
         onClick={handleNext}
       >
         {step < MAKE_ROOM_STEPS.length - 1 ? `Next: ${MAKE_ROOM_STEPS[step + 1].title}` : 'Complete'}
       </button>
+      {step > 0 && <StepBack onClick={() => setStep(s => s - 1)} />}
     </div>
   );
 }
@@ -108,6 +108,7 @@ export function SoftenAllow({ onComplete }: ExerciseProps) {
   const [phase, setPhase] = useState<'locate' | 'describe' | 'soften' | 'allow' | 'done'>('locate');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
+  const stepRef = useStepStart<HTMLDivElement>(phase);
 
   const phases = {
     locate: {
@@ -117,7 +118,9 @@ export function SoftenAllow({ onComplete }: ExerciseProps) {
       value: location,
       onChange: setLocation,
       next: 'describe' as const,
+      back: null,
       btnLabel: 'I found it',
+      need: 'Write where you feel it to continue.',
     },
     describe: {
       title: 'Describe it',
@@ -126,13 +129,15 @@ export function SoftenAllow({ onComplete }: ExerciseProps) {
       value: description,
       onChange: setDescription,
       next: 'soften' as const,
+      back: 'locate' as const,
       btnLabel: 'Continue',
+      need: 'Describe it in a few words to continue.',
     },
   };
 
   if (phase === 'soften') {
     return (
-      <div>
+      <div ref={stepRef}>
         <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', marginBottom: 16 }}>Breathe space around it</div>
         <p style={{ fontSize: 16, fontFamily: 'Georgia, serif', lineHeight: 1.8, color: 'var(--text-1)', marginBottom: 20 }}>
           Take a slow, gentle breath. As you breathe, imagine the air flowing around the feeling — not pushing it away, but creating space for it to exist.
@@ -145,18 +150,18 @@ export function SoftenAllow({ onComplete }: ExerciseProps) {
         </p>
         <button
           className="btn btn-primary w-full"
-          style={{ backgroundColor: 'var(--cat-acceptance)' }}
           onClick={() => setPhase('allow')}
         >
           I've taken 3 breaths
         </button>
+        <StepBack onClick={() => setPhase('describe')} />
       </div>
     );
   }
 
   if (phase === 'allow') {
     return (
-      <div>
+      <div ref={stepRef}>
         <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', marginBottom: 16 }}>Allow it to be here</div>
         <p style={{ fontSize: 16, fontFamily: 'Georgia, serif', lineHeight: 1.8, color: 'var(--text-1)', marginBottom: 20 }}>
           Say these words to yourself, and mean them:
@@ -184,27 +189,29 @@ export function SoftenAllow({ onComplete }: ExerciseProps) {
         >
           Complete practice
         </button>
+        <StepBack onClick={() => setPhase('soften')} />
       </div>
     );
   }
 
   if (phase === 'done') {
     return (
-      <div className="completion-screen">
+      <CompletionScreen>
         <span className="completion-icon">🌊</span>
         <div className="completion-title">Opening, not closing.</div>
         <div className="completion-msg">
           Acceptance doesn't mean giving up. It means stopping the war with your own experience — and from that place of peace, you can choose freely.
         </div>
         <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
-      </div>
+      </CompletionScreen>
     );
   }
 
   const p = phases[phase as 'locate' | 'describe'];
+  const back = p.back;
 
   return (
-    <div>
+    <div ref={stepRef}>
       <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', marginBottom: 16 }}>{p.title}</div>
       <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.7, marginBottom: 20 }}>{p.instruction}</p>
       <input
@@ -214,14 +221,10 @@ export function SoftenAllow({ onComplete }: ExerciseProps) {
         value={p.value}
         onChange={e => p.onChange(e.target.value)}
       />
-      <button
-        className="btn btn-primary w-full mt-6"
-        style={{ backgroundColor: 'var(--cat-acceptance)' }}
-        disabled={!p.value.trim()}
-        onClick={() => setPhase(p.next)}
-      >
+      <WaitingButton className="mt-6" ready={!!p.value.trim()} need={p.need} onClick={() => setPhase(p.next)}>
         {p.btnLabel}
-      </button>
+      </WaitingButton>
+      {back && <StepBack onClick={() => setPhase(back)} />}
     </div>
   );
 }

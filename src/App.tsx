@@ -174,11 +174,6 @@ export default function App() {
     setHistory(prev => ({ ...prev, [day]: [...(prev[day] ?? []), exerciseId] }));
   }, [setHistory]);
 
-  const handleExerciseComplete = useCallback((exerciseId: string) => {
-    recordPractice(exerciseId);
-    setActiveExercise(null);
-  }, [recordPractice]);
-
   const saveCheckin = useCallback((entry: CheckinEntry) => {
     setCheckins(prev => [...prev, entry]);
   }, [setCheckins]);
@@ -250,9 +245,10 @@ export default function App() {
 
       {activeExercise && (
         <ExerciseModal
+          key={activeExercise.id}
           exercise={activeExercise}
           onClose={() => setActiveExercise(null)}
-          onComplete={() => handleExerciseComplete(activeExercise.id)}
+          onReachedEnd={() => recordPractice(activeExercise.id)}
         />
       )}
 

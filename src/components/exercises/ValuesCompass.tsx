@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ExerciseProps } from '../../types';
+import CompletionScreen, { StepBack, useStepStart, WaitingButton } from './CompletionScreen';
 
 const DOMAINS = [
   { id: 'relationships', emoji: '💞', name: 'Relationships' },
@@ -16,6 +17,7 @@ export default function ValuesCompass({ onComplete }: ExerciseProps) {
   const [phase, setPhase] = useState<'select' | 'intend' | 'done'>('select');
   const [selected, setSelected] = useState<string[]>([]);
   const [intentions, setIntentions] = useState<Record<string, string>>({});
+  const stepRef = useStepStart<HTMLDivElement>(phase);
 
   function toggleDomain(id: string) {
     setSelected(prev =>
@@ -29,12 +31,12 @@ export default function ValuesCompass({ onComplete }: ExerciseProps) {
     setIntentions(prev => ({ ...prev, [id]: val }));
   }
 
-  const allIntentionsFilled = selected.some(id => intentions[id]?.trim());
+  const anyIntention = selected.some(id => intentions[id]?.trim());
 
   if (phase === 'done') {
     const selectedDomains = DOMAINS.filter(d => selected.includes(d.id) && intentions[d.id]?.trim());
     return (
-      <div className="completion-screen">
+      <CompletionScreen>
         <span className="completion-icon">🧭</span>
         <div className="completion-title">Compass set.</div>
         <div className="completion-msg">
@@ -49,14 +51,14 @@ export default function ValuesCompass({ onComplete }: ExerciseProps) {
           Let these intentions orient you today — not as pressure, but as a compass.
         </p>
         <button className="btn btn-primary mt-4" onClick={onComplete}>Finish</button>
-      </div>
+      </CompletionScreen>
     );
   }
 
   if (phase === 'intend') {
     const selectedDomains = DOMAINS.filter(d => selected.includes(d.id));
     return (
-      <div>
+      <div ref={stepRef}>
         <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>Set an intention</div>
         <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.7, marginBottom: 24 }}>
           For each area, write one small intention — not a goal, not a to-do. A direction. Something that reflects what you want to stand for.
@@ -77,20 +79,16 @@ export default function ValuesCompass({ onComplete }: ExerciseProps) {
           ))}
         </div>
 
-        <button
-          className="btn btn-primary w-full"
-          style={{ backgroundColor: 'var(--cat-values)', opacity: allIntentionsFilled ? 1 : 0.4 }}
-          disabled={!allIntentionsFilled}
-          onClick={() => setPhase('done')}
-        >
+        <WaitingButton ready={anyIntention} need="Write at least one intention to continue." onClick={() => setPhase('done')}>
           Set my compass
-        </button>
+        </WaitingButton>
+        <StepBack onClick={() => setPhase('select')} />
       </div>
     );
   }
 
   return (
-    <div>
+    <div ref={stepRef}>
       <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>Choose up to 3 areas</div>
       <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.6, marginBottom: 20 }}>
         Select the life areas that matter most to you right now — or that anxiety is most affecting.
@@ -109,14 +107,9 @@ export default function ValuesCompass({ onComplete }: ExerciseProps) {
         ))}
       </div>
 
-      <button
-        className="btn btn-primary w-full"
-        style={{ backgroundColor: 'var(--cat-values)', opacity: selected.length > 0 ? 1 : 0.4 }}
-        disabled={selected.length === 0}
-        onClick={() => setPhase('intend')}
-      >
-        Continue with {selected.length} area{selected.length !== 1 ? 's' : ''}
-      </button>
+      <WaitingButton ready={selected.length > 0} need="Choose at least one area to continue." onClick={() => setPhase('intend')}>
+        {selected.length > 0 ? `Continue with ${selected.length} area${selected.length !== 1 ? 's' : ''}` : 'Continue'}
+      </WaitingButton>
     </div>
   );
 }

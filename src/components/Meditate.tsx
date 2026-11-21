@@ -175,9 +175,17 @@ export default function Meditate({
 
             {error && !busy && <p className="form-error" role="alert">{error}</p>}
 
-            <button className="btn btn-primary w-full mt-4" disabled={busy || !prompt.trim()} onClick={create}>
+            <button
+              className="btn btn-primary w-full mt-4"
+              disabled={busy || !prompt.trim()}
+              aria-describedby={!busy && !prompt.trim() ? 'med-need' : undefined}
+              onClick={create}
+            >
               {busy ? 'Writing your meditation…' : 'Create meditation'}
             </button>
+            {!busy && !prompt.trim() && (
+              <p id="med-need" className="btn-need">Write what you'd like help with (at the top) to create one.</p>
+            )}
             {busy && (
               <p className="caption-text mt-2 text-center">
                 This usually takes under a minute. It will be saved below even if you leave this screen.

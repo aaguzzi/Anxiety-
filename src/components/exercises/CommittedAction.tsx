@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ExerciseProps } from '../../types';
+import CompletionScreen, { WaitingButton } from './CompletionScreen';
 
 export default function OneSmallStep({ onComplete }: ExerciseProps) {
   const [form, setForm] = useState({
@@ -18,7 +19,7 @@ export default function OneSmallStep({ onComplete }: ExerciseProps) {
 
   if (done) {
     return (
-      <div className="completion-screen">
+      <CompletionScreen>
         <span className="completion-icon">🌱</span>
         <div className="completion-title">A step forward.</div>
         <div style={{ width: '100%', background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '20px', fontSize: 14, color: 'var(--text-2)', lineHeight: 1.8, textAlign: 'left' }}>
@@ -43,7 +44,7 @@ export default function OneSmallStep({ onComplete }: ExerciseProps) {
           You don't need to feel ready. You don't need anxiety to go away. You just need to take one step.
         </p>
         <button className="btn btn-primary mt-2" onClick={onComplete}>Finish</button>
-      </div>
+      </CompletionScreen>
     );
   }
 
@@ -77,7 +78,9 @@ export default function OneSmallStep({ onComplete }: ExerciseProps) {
         </div>
 
         <div className="form-group">
-          <label className="form-label">What is ONE small step you can take today?</label>
+          <label className="form-label">
+            What is ONE small step you can take today? <span className="form-required">(needed to continue)</span>
+          </label>
           <div className="form-hint">Make it concrete and achievable in the next 24 hours.</div>
           <textarea
             className="form-textarea"
@@ -100,14 +103,9 @@ export default function OneSmallStep({ onComplete }: ExerciseProps) {
         </div>
       </div>
 
-      <button
-        className="btn btn-primary w-full"
-        style={{ backgroundColor: 'var(--cat-action)', opacity: canSubmit ? 1 : 0.4 }}
-        disabled={!canSubmit}
-        onClick={() => setDone(true)}
-      >
+      <WaitingButton ready={canSubmit} need="Write the one small step you can take today to continue." onClick={() => setDone(true)}>
         I commit to this step
-      </button>
+      </WaitingButton>
     </div>
   );
 }

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { ExerciseProps } from '../../types';
+import CompletionScreen, { useStepStart } from './CompletionScreen';
 
 type Phase = 'ready' | 'inhale' | 'hold-in' | 'exhale' | 'hold-out' | 'done';
 
@@ -39,6 +40,21 @@ function BreathingVisual({ phase, duration, color, edge }: { phase: Phase; durat
         }}
       />
     </div>
+  );
+}
+
+// The end of the Toolbox breathing exercises.
+function BreathingDone({ onFinish, onAgain }: { onFinish: () => void; onAgain: () => void }) {
+  return (
+    <CompletionScreen>
+      <span className="completion-icon">🌬️</span>
+      <div className="completion-title">Nicely done.</div>
+      <div className="completion-msg">
+        Notice how your body feels now, whatever that is. You can come back to this breath any time.
+      </div>
+      <button className="btn btn-primary mt-6" onClick={onFinish}>Finish</button>
+      <button className="btn btn-ghost" onClick={onAgain}>Go again</button>
+    </CompletionScreen>
   );
 }
 
@@ -90,22 +106,15 @@ function BreathingEngine({ config, onComplete }: { config: CycleConfig; onComple
     setPaused(false);
   }
 
+  // Begin may have been scrolled to at large text: starting brings the circle back into view.
+  const sceneRef = useStepStart<HTMLDivElement>(started);
+
   if (finished) {
-    return (
-      <div className="completion-screen">
-        <span className="completion-icon">🌬️</span>
-        <div className="completion-title">Nicely done.</div>
-        <div className="completion-msg">
-          Notice how your body feels now, whatever that is. You can come back to this breath any time.
-        </div>
-        <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
-        <button className="btn btn-ghost" onClick={() => { setFinished(false); begin(); }}>Go again</button>
-      </div>
-    );
+    return <BreathingDone onFinish={onComplete} onAgain={() => { setFinished(false); begin(); }} />;
   }
 
   return (
-    <div className="breathing-scene">
+    <div className="breathing-scene" ref={sceneRef}>
       <BreathingVisual
         phase={paused ? 'ready' : currentPhase.phase}
         duration={currentPhase.duration}
@@ -133,15 +142,11 @@ function BreathingEngine({ config, onComplete }: { config: CycleConfig; onComple
                 Skip the breath-holds
               </label>
               <p className="caption-text">
-                If holding your breath feels uncomfortable or makes you dizzy, skip the holds and just breathe in and out slowly.
+                If holding your breath makes you dizzy or uncomfortable, just breathe in and out.
               </p>
             </div>
           )}
-          <button
-            className="btn btn-primary breathing-start-btn"
-            style={{ minWidth: 180 }}
-            onClick={begin}
-          >
+          <button className="btn btn-primary breathing-start-btn" onClick={begin}>
             Begin
           </button>
         </>
@@ -193,92 +198,125 @@ export function Breathing478({ onComplete }: ExerciseProps) {
 }
 
 // ─── Physiological Sigh ───────────────────────────────
+const SIGH_STEPS = [
+  { label: 'First inhale', detail: 'Breathe in deeply through your nose — fill your lungs about 80%.', duration: 3 },
+  { label: 'Top-up inhale', detail: 'Take a short second inhale through your nose to fully expand your lungs.', duration: 2 },
+  { label: 'Long exhale', detail: 'Slowly breathe out through your mouth — take twice as long as the inhale.', duration: 6 },
+];
+// The circle at rest and breathed out, after the first inhale (about 80%), and full after the top-up,
+// so each of the two inhales visibly fills it.
+const SIGH_SIZES = [104, 128, 60];
+const SIGH_REST = 60;
+
+// In SOS (autoStart) it starts at once and moves on by itself when done; in the Toolbox it waits
+// for Begin, can be paused, and ends on its own closing screen.
 export function PhysiologicalSigh({ onComplete, autoStart = false, reps = 5 }: ExerciseProps & { autoStart?: boolean; reps?: number }) {
+  const [running, setRunning] = useState(autoStart);
+  const [paused, setPaused] = useState(false);
+  const [finished, setFinished] = useState(false);
   const [step, setStep] = useState(0);
   const [rep, setRep] = useState(1);
+  const [count, setCount] = useState(SIGH_STEPS[0].duration);
   const totalReps = reps;
 
-  const steps = [
-    { label: 'First inhale', detail: 'Breathe in deeply through your nose — fill your lungs about 80%.', duration: 3 },
-    { label: 'Top-up inhale', detail: 'Take a short second inhale through your nose to fully expand your lungs.', duration: 2 },
-    { label: 'Long exhale', detail: 'Slowly breathe out through your mouth — take twice as long as the inhale.', duration: 6 },
-  ];
-
-  const [count, setCount] = useState(steps[0].duration);
-  const [running, setRunning] = useState(autoStart);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!running || paused) return;
+    const t = setInterval(() => setCount(c => c - 1), 1000);
+    return () => clearInterval(t);
+  }, [running, paused]);
 
   useEffect(() => {
-    if (!running) return;
-    setCount(steps[step].duration);
-    timerRef.current = setInterval(() => {
-      setCount(c => {
-        if (c <= 1) {
-          clearInterval(timerRef.current!);
-          const nextStep = step + 1;
-          if (nextStep >= steps.length) {
-            if (rep >= totalReps) {
-              setRunning(false);
-              onComplete();
-            } else {
-              setRep(r => r + 1);
-              setStep(0);
-            }
-          } else {
-            setStep(nextStep);
-          }
-          return 0;
-        }
-        return c - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timerRef.current!);
-  }, [running, step, rep]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!running || count > 0) return;
+    if (step + 1 < SIGH_STEPS.length) {
+      setStep(step + 1);
+      setCount(SIGH_STEPS[step + 1].duration);
+    } else if (rep < totalReps) {
+      setRep(rep + 1);
+      setStep(0);
+      setCount(SIGH_STEPS[0].duration);
+    } else {
+      setRunning(false);
+      if (autoStart) onComplete();
+      else setFinished(true);
+    }
+  }, [count]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const current = steps[running ? step : 0];
+  function begin() {
+    setStep(0);
+    setRep(1);
+    setCount(SIGH_STEPS[0].duration);
+    setPaused(false);
+    setRunning(true);
+  }
+
+  // A pause starts the sigh again from its first inhale: the two inhales belong together.
+  function togglePause() {
+    if (paused) { setStep(0); setCount(SIGH_STEPS[0].duration); }
+    setPaused(p => !p);
+  }
+
+  const sceneRef = useStepStart<HTMLDivElement>(running);
+
+  if (finished) {
+    return <BreathingDone onFinish={onComplete} onAgain={() => { setFinished(false); begin(); }} />;
+  }
+
+  const moving = running && !paused;
+  const current = SIGH_STEPS[step];
+  const size = moving ? SIGH_SIZES[step] : SIGH_REST;
+  const transition = `${moving ? current.duration : 0.8}s ease-in-out`;
+  const label = !running ? 'Ready' : paused ? 'Paused' : current.label;
+  const detail = !running
+    ? 'Two breaths in through your nose, then one long breath out. Tap Begin when you\'re ready.'
+    : paused ? 'Resume when you\'re ready. It starts again from the first inhale.' : current.detail;
 
   return (
-    <div className="breathing-scene">
+    <div className="breathing-scene" ref={sceneRef}>
       <div className="breathing-ring-wrap">
         <div
           className="breathing-ring"
           style={{
-            width: running && step === 2 ? 80 : 160,
-            height: running && step === 2 ? 80 : 160,
+            width: size + 40,
+            height: size + 40,
             color: '#6B9E7A',
-            transition: `width ${current.duration}s ease-in-out, height ${current.duration}s ease-in-out`,
+            transition: `width ${transition}, height ${transition}`,
           }}
         />
         <div
           className="breathing-circle"
           style={{
-            width: running && step === 2 ? 60 : 120,
-            height: running && step === 2 ? 60 : 120,
+            width: size,
+            height: size,
             backgroundColor: '#6B9E7A59', // a soft fill (35%) inside a solid edge (3.98:1 on the page)
             boxShadow: 'inset 0 0 0 2px #4E7F5C',
-            transition: `width ${current.duration}s ease-in-out, height ${current.duration}s ease-in-out`,
+            transition: `width ${transition}, height ${transition}`,
           }}
         />
       </div>
 
-      <div className="breathing-phase" style={{ textAlign: 'center' }}>
-        <span className="breathing-phase-label">{current.label}</span>
-        <div style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 6, lineHeight: 1.5 }}>{current.detail}</div>
-        {running && count > 0 && <div className="breathing-countdown" style={{ marginTop: 8 }}>{count}</div>}
+      <div className="breathing-phase">
+        <span className="breathing-phase-label">{label}</span>
+        <div className="breathing-phase-detail">{detail}</div>
+        {moving && count > 0 && <div className="breathing-countdown" style={{ marginTop: 8 }}>{count}</div>}
       </div>
 
       <div className="breathing-cycle-info">
-        {running ? `Sigh ${rep} of ${totalReps}` : `${totalReps} sighs · a long, slow breath out`}
+        {running ? `Sigh ${rep} of ${totalReps}` : `${totalReps} sighs · about ${totalReps * 11} seconds`}
       </div>
 
       {!running && (
-        <button
-          className="btn btn-primary"
-          style={{ minWidth: 180 }}
-          onClick={() => { setRunning(true); setStep(0); setRep(1); }}
-        >
+        <button className="btn btn-primary breathing-start-btn" onClick={begin}>
           Begin
         </button>
+      )}
+
+      {running && !autoStart && (
+        <div className="breathing-controls">
+          <button className="btn btn-secondary" onClick={togglePause}>
+            {paused ? 'Resume' : 'Pause'}
+          </button>
+          <button className="btn btn-ghost" onClick={() => { setRunning(false); setPaused(false); }}>Stop</button>
+        </div>
       )}
     </div>
   );

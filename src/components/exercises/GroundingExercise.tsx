@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ExerciseProps } from '../../types';
+import CompletionScreen, { StepBack, useStepStart } from './CompletionScreen';
 
 // ─── 5-4-3-2-1 Grounding ──────────────────────────────
 const SENSES = [
@@ -38,19 +39,22 @@ export function Grounding54321({ onComplete }: ExerciseProps) {
 
   if (done) {
     return (
-      <div className="completion-screen">
+      <CompletionScreen>
         <span className="completion-icon">🌿</span>
         <div className="completion-title">You're here.</div>
         <div className="completion-msg">
           You just anchored yourself in the present moment through your senses. Whatever you notice now is fine, just as it is.
         </div>
         <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
-      </div>
+      </CompletionScreen>
     );
   }
 
   return (
     <div>
+      <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.7, marginBottom: 24 }}>
+        Tap the circle for each thing you notice. You can type it as well, if that helps.
+      </p>
       {SENSES.map((s, si) => (
         <div className="sense-block" key={s.sense}>
           <div className="sense-heading">
@@ -73,7 +77,8 @@ export function Grounding54321({ onComplete }: ExerciseProps) {
                 <input
                   type="text"
                   className={`sense-input ${inputs[si][ii].trim() ? 'filled' : ''}`}
-                  placeholder="Tap the circle, or type it (optional)"
+                  placeholder="Type it (optional)"
+                  aria-label={`Something you can ${s.sense.toLowerCase()}, ${ii + 1} of ${s.count} (optional)`}
                   value={inputs[si][ii]}
                   onChange={e => handleChange(si, ii, e.target.value)}
                 />
@@ -84,7 +89,7 @@ export function Grounding54321({ onComplete }: ExerciseProps) {
       ))}
 
       <button className="btn btn-primary w-full mt-4" onClick={() => setDone(true)}>
-        {doneCount === 15 ? 'Complete grounding' : 'Finish'}
+        {doneCount === 15 ? 'Complete grounding' : "I'm done noticing"}
       </button>
       <div style={{ height: 16 }} />
     </div>
@@ -105,17 +110,18 @@ const BODY_REGIONS = [
 export function BodyScan({ onComplete }: ExerciseProps) {
   const [regionIdx, setRegionIdx] = useState(-1);
   const [done, setDone] = useState(false);
+  const stepRef = useStepStart<HTMLDivElement>(regionIdx);
 
   if (done) {
     return (
-      <div className="completion-screen">
+      <CompletionScreen>
         <span className="completion-icon">🌊</span>
         <div className="completion-title">Well done.</div>
         <div className="completion-msg">
           You just practiced acceptance with your body — meeting sensation with curiosity instead of struggle.
         </div>
         <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
-      </div>
+      </CompletionScreen>
     );
   }
 
@@ -139,7 +145,7 @@ export function BodyScan({ onComplete }: ExerciseProps) {
   const isLast = regionIdx === BODY_REGIONS.length - 1;
 
   return (
-    <div>
+    <div ref={stepRef}>
       <div style={{
         display: 'flex',
         gap: 6,
@@ -183,7 +189,6 @@ export function BodyScan({ onComplete }: ExerciseProps) {
 
       <button
         className="btn btn-primary w-full"
-        style={{ backgroundColor: 'var(--cat-grounding)' }}
         onClick={() => {
           if (isLast) setDone(true);
           else setRegionIdx(i => i + 1);
@@ -191,6 +196,7 @@ export function BodyScan({ onComplete }: ExerciseProps) {
       >
         {isLast ? 'Complete scan' : 'Continue'}
       </button>
+      {regionIdx > 0 && <StepBack onClick={() => setRegionIdx(i => i - 1)} />}
     </div>
   );
 }

@@ -333,6 +333,9 @@ html, body, #root {
   color: var(--text-1);
   line-height: 1.2;
   margin-bottom: 6px;
+  /* 'Physiological' at large text is wider than a phone: it breaks rather than widening the screen. */
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .exercise-subtitle {
@@ -355,18 +358,21 @@ html, body, #root {
 }
 
 /* ─── Breathing ───────────────────────────────────── */
+/* Close enough together that 'Begin' is on the first screen of a small phone, under the circle,
+   so the screen does not change shape when the exercise starts. */
 .breathing-scene {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
-  padding: 24px 0 32px;
+  gap: 20px;
+  padding: 8px 0 24px;
 }
 
+/* The ring is at most 200px (the circle's largest size plus 40). */
 .breathing-ring-wrap {
   position: relative;
-  width: 220px;
-  height: 220px;
+  width: 200px;
+  height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -406,6 +412,13 @@ html, body, #root {
   font-variant-numeric: tabular-nums;
 }
 
+.breathing-phase-detail {
+  font-size: 14px;
+  color: var(--text-2);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
 .breathing-cycle-info {
   font-size: 14px;
   color: var(--text-3);
@@ -413,8 +426,11 @@ html, body, #root {
 }
 
 .breathing-start-btn {
-  margin-top: 8px;
+  min-width: 180px;
 }
+
+/* Breathing exercises explain themselves after the circle; not under their closing screen. */
+.completion-screen + .exercise-rationale { display: none; }
 
 /* ─── Grounding 54321 ─────────────────────────────── */
 .sense-block {
@@ -485,8 +501,11 @@ html, body, #root {
   transform: rotate(45deg) translateY(-1px);
 }
 
+/* min-width 0: a text field would otherwise keep about 20 characters' width, which grows with the
+   text size, and push the row (and the screen) wider than the phone. */
 .sense-input {
   flex: 1;
+  min-width: 0;
   padding: 10px 14px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
@@ -564,12 +583,14 @@ html, body, #root {
 
 .thought-input-row {
   display: flex;
+  align-items: center;
   gap: 10px;
   margin-bottom: 16px;
 }
 
 .thought-input {
   flex: 1;
+  min-width: 0;
   padding: 12px 16px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
@@ -583,11 +604,12 @@ html, body, #root {
 
 .thought-input:focus { border-color: var(--cat-defusion); }
 
+/* Placing a leaf is the exercise's main action, so it has the main button's colour. */
 .thought-add-btn {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: var(--radius-sm);
-  background: var(--cat-defusion);
+  background: var(--text-1);
   border: none;
   color: white;
   font-size: 22px;
@@ -734,9 +756,10 @@ html, body, #root {
 .step-reflection:focus { border-color: var(--cat-acceptance); }
 
 /* ─── Values Compass ──────────────────────────────── */
+/* Two columns that stay inside the screen at any text size: a long name breaks instead. */
 .values-domains {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 28px;
 }
@@ -769,6 +792,8 @@ html, body, #root {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-1);
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .values-intentions {
@@ -923,6 +948,28 @@ html, body, #root {
 .form-hint {
   font-size: 13px;
   color: var(--text-3);
+}
+
+.form-required {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+/* What a main button is waiting for, said right under it while it is disabled. */
+.btn-need {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* Stepping back within an exercise: a quiet text button, centred under the step's main button.
+   (The round button at the top always leaves the exercise.) */
+.step-back {
+  display: flex;
+  margin: 12px auto 0;
 }
 
 .form-textarea {
@@ -1856,6 +1903,7 @@ a.btn { text-decoration: none; }
 .exercise-scroll { padding-bottom: 110px; }
 
 button.sense-check {
+  position: relative;
   width: 30px;
   height: 30px;
   padding: 0;
@@ -1864,12 +1912,21 @@ button.sense-check {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* A 48px circle to tap, around the 30px one that shows (clear of the field beside it). */
+button.sense-check::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
+}
+
 button.sense-check.done { background: var(--cat-grounding); }
 
 .sos-label { color: var(--sos); }
 
-/* Leaving SOS: the same 36px circle as everywhere, in a 48px target. */
-.sos-overlay .back-btn {
+/* Leaving SOS or an exercise: the same 36px circle as everywhere, in a 48px target. */
+.sos-overlay .back-btn,
+.exercise-modal .back-btn {
   width: 48px;
   height: 48px;
   margin: -6px;
@@ -1998,12 +2055,15 @@ button.sense-check.done { background: var(--cat-grounding); }
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
   font-size: 15px;
   font-weight: 600;
   color: var(--text-1);
-  margin-bottom: 6px;
+  text-align: left;
   cursor: pointer;
 }
+
+.hold-option .caption-text { color: var(--text-2); }
 
 .hold-toggle input {
   width: 20px;
@@ -2018,8 +2078,10 @@ button.sense-check.done { background: var(--cat-grounding); }
 
 .breathing-controls .btn { min-width: 120px; }
 
+/* Deleting is set apart by its form (red outline and text), not a filled red that would sit next to
+   the SOS colour. */
 .danger-text { color: #A04848; }
-.danger-bg { background: #A04848; }
+.danger-border { border-color: #A04848; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -2372,7 +2434,7 @@ button.sense-check.done { background: var(--cat-grounding); }
   padding: 7px 12px;
   border-radius: var(--radius-full);
   border: none;
-  background: var(--cat-mindfulness);
+  background: var(--text-1);
   color: white;
   font-size: 13px;
   font-weight: 700;

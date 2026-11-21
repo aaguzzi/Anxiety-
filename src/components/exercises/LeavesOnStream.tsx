@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { ExerciseProps } from '../../types';
+import CompletionScreen from './CompletionScreen';
 
 interface Leaf {
   id: number;
@@ -35,14 +36,14 @@ export default function LeavesOnStream({ onComplete }: ExerciseProps) {
 
   if (done) {
     return (
-      <div className="completion-screen">
+      <CompletionScreen>
         <span className="completion-icon">🍃</span>
         <div className="completion-title">Well practiced.</div>
         <div className="completion-msg">
           You placed {count} thought{count !== 1 ? 's' : ''} on leaves and watched them float away. You are not your thoughts — you are the observer.
         </div>
         <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
-      </div>
+      </CompletionScreen>
     );
   }
 
@@ -90,7 +91,8 @@ export default function LeavesOnStream({ onComplete }: ExerciseProps) {
         <input
           type="text"
           className="thought-input"
-          placeholder="Type a thought and place it on a leaf..."
+          placeholder="Type a thought…"
+          aria-label="A thought to place on a leaf"
           value={thought}
           onChange={e => setThought(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && addLeaf()}
@@ -109,7 +111,6 @@ export default function LeavesOnStream({ onComplete }: ExerciseProps) {
       {count >= 1 && (
         <button
           className="btn btn-primary w-full"
-          style={{ backgroundColor: 'var(--cat-defusion)' }}
           onClick={() => setDone(true)}
         >
           Complete practice
