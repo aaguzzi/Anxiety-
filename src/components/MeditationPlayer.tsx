@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { Meditation, Settings, VoiceBench } from '../types';
 import {
@@ -18,6 +18,7 @@ interface Props {
   onChangeSettings: (update: (prev: Settings) => Settings) => void;
   onSaveBench: (bench: VoiceBench) => void;
   onClose: () => void;
+  /** The meditation has been listened to the end (counts as practice; the player stays open). */
   onComplete: () => void;
 }
 
@@ -69,6 +70,9 @@ export default function MeditationPlayer({
   // What to do when the Voice & sounds screen closes.
   const afterPanelRef = useRef<'resume' | 'restart' | 'nothing' | null>(null);
   const scrubTimer = useRef<number | undefined>(undefined);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const captionRef = useRef<HTMLDivElement>(null);
+  const transportRef = useRef<HTMLDivElement>(null);
 
   const lineId = (i: number) => `${meditation.id}-${i}`;
 
@@ -344,6 +348,9 @@ export default function MeditationPlayer({
         engineRef.current?.stop();
         show('paused');
       }
+    } else if (now === 'error') {
+      // The voice couldn't start: try again from the same sentence once a voice has been chosen.
+      afterPanelRef.current = 'restart';
     } else {
       afterPanelRef.current = 'nothing';
     }
@@ -386,11 +393,12 @@ export default function MeditationPlayer({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Back from Voice & sounds: carry on from the same sentence, with the new voice if it changed.
+  // After the voice failed to start, try again whether or not it changed.
   useEffect(() => {
     if (voicePanelOpen || afterPanelRef.current === null) return;
     const then = afterPanelRef.current;
     afterPanelRef.current = null;
-    if (statusRef.current === 'done' || statusRef.current === 'error') return;
+    if (statusRef.current === 'done') return;
     if (voiceSettingsKey(settingsRef.current) !== voiceKeyRef.current || then === 'restart') start(indexRef.current);
     else if (then === 'resume') resume();
   }, [voicePanelOpen]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -415,6 +423,31 @@ export default function MeditationPlayer({
     else if (status === 'playing' || status === 'paused') savePosition(meditation.id, index);
   }, [status, index, meditation.id]);
 
+  // Reaching the end counts as practice, however the player is left afterwards (Finish, ✕ or Back).
+  useEffect(() => {
+    if (status === 'done') onComplete();
+  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const busy = status === 'preparing';
+
+  // When the words don't all fit above the controls (large text, a small screen, a long title),
+  // scroll the new line (and the "picking up where you left off" note under it) into view above
+  // them, the title making way. Not while the listener has scrolled on past the words (to the
+  // sounds), and never so far that the line's first words go out of view.
+  useLayoutEffect(() => {
+    const body = bodyRef.current, caption = captionRef.current, transport = transportRef.current;
+    if (!body || !caption || !transport) return;
+    const view = body.getBoundingClientRect();
+    const top = caption.getBoundingClientRect().top;
+    if (top < view.top) return;
+    const note = transport.previousElementSibling;
+    // Layout sizes, not the fading-in line's drawn box (which starts a few pixels lower).
+    const text = caption.firstElementChild as HTMLElement | null;
+    const bottom = note && note !== caption ? note.getBoundingClientRect().bottom : top + (text ?? caption).offsetHeight;
+    const hidden = bottom - Math.min(view.bottom, transport.getBoundingClientRect().top);
+    if (hidden > 1) body.scrollTop += Math.min(hidden, top - view.top);
+  }, [index, busy, showResumed]);
+
   // Keeps the clock moving through each sentence and the silence after it.
   useEffect(() => {
     if (status !== 'playing') return;
@@ -422,57 +455,69 @@ export default function MeditationPlayer({
     return () => window.clearInterval(timer);
   }, [status]);
 
+  const closeButton = (
+    <button className="back-btn" onClick={onClose} aria-label="Close meditation">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+      </svg>
+    </button>
+  );
+
   if (status === 'done' || status === 'error') {
     return (
       <div className="exercise-overlay player-overlay">
-        {status === 'done' ? (
-          <div className="completion-screen">
-            <span className="completion-icon">🌿</span>
-            <div className="completion-title">Welcome back.</div>
-            <div className="completion-msg">
-              Take a moment before you move on. This meditation is saved, so you can return to it any time.
-            </div>
-            <button className="btn btn-primary mt-6" onClick={onComplete}>Finish</button>
-            <button className="btn btn-ghost" onClick={() => start(0)}>Play again</button>
+        <div className="exercise-overlay-inner">
+          <div className="exercise-top-bar">{closeButton}</div>
+          {/* Keyed so it is a new element, not the scrolled player body reused. */}
+          <div className="player-end" key="end">
+            {status === 'done' ? (
+              <div className="completion-screen">
+                <span className="completion-icon">🌿</span>
+                <div className="completion-title">Welcome back.</div>
+                <div className="completion-msg">
+                  Take a moment before you move on. This meditation is saved, so you can return to it any time.
+                </div>
+                <button className="btn btn-primary mt-6" onClick={onClose}>Finish</button>
+                <button className="btn btn-ghost" onClick={() => start(0)}>Play again</button>
+              </div>
+            ) : (
+              <div className="completion-screen">
+                <div className="completion-title">The voice couldn't start</div>
+                <div className="completion-msg">
+                  Your phone didn't speak the meditation. Check that a text-to-speech voice is installed
+                  (Android Settings → Accessibility → Text-to-speech), or choose a different voice.
+                </div>
+                <button className="btn btn-primary mt-6" onClick={openVoice}>Choose another voice</button>
+                <button className="btn btn-ghost" onClick={onClose}>Close</button>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="completion-screen">
-            <div className="completion-title">The voice couldn't start</div>
-            <div className="completion-msg">
-              Your phone didn't speak the meditation. Check that a text-to-speech voice is installed
-              (Android Settings → Accessibility → Text-to-speech), or choose a different voice.
-            </div>
-            <button className="btn btn-primary mt-6" onClick={onClose}>Close</button>
-          </div>
-        )}
+        </div>
       </div>
     );
   }
 
   const elapsed = Math.min(totalSeconds, (startsAt[index] ?? 0) + Math.min(lengths[index] ?? 0, lineSeconds()));
   const shown = scrub ?? elapsed;
-  const busy = status === 'preparing';
 
   return (
     <div className="exercise-overlay player-overlay">
       <div className="exercise-overlay-inner">
         <div className="exercise-top-bar">
-          <button className="back-btn" onClick={onClose} aria-label="Close meditation">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
-            </svg>
-          </button>
+          {closeButton}
           <button className="player-voice-btn" onClick={openVoice}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
               <path d="M4 7h10M18 7h2M4 17h4M12 17h8" strokeLinecap="round" />
               <circle cx="16" cy="7" r="2" />
               <circle cx="10" cy="17" r="2" />
             </svg>
-            Voice &amp; sounds
+            <span>Voice &amp; sounds</span>
           </button>
+          {/* Keeps the corner free for the SOS button that floats there, at any text size. */}
+          <span className="player-sos-space" aria-hidden="true">SOS</span>
         </div>
 
-        <div className="player-body">
+        <div className="player-body" key="body" ref={bodyRef}>
           <div className="player-title">{meditation.title}</div>
           <div className="player-voice">
             {status === 'paused' ? 'Paused' : voiceName ? `Read by ${voiceName}` : '\u00a0'}
@@ -480,7 +525,7 @@ export default function MeditationPlayer({
 
           <div className={`player-orb ${status === 'playing' ? 'breathing' : ''}`} />
 
-          <div className="player-caption" aria-live="polite">
+          <div className="player-caption" aria-live="polite" ref={captionRef}>
             {busy ? (
               <span className="player-status">
                 {slowStart
@@ -499,45 +544,48 @@ export default function MeditationPlayer({
             </div>
           )}
 
-          <input
-            type="range"
-            className="slider player-seek"
-            aria-label="Position in the meditation"
-            aria-valuetext={`${clock(shown)} of ${clock(totalSeconds)}`}
-            min={0}
-            max={Math.round(totalSeconds)}
-            step={1}
-            value={Math.round(shown)}
-            disabled={busy}
-            onChange={e => onScrub(Number(e.target.value))}
-          />
-          <div className="player-time">
-            <span>{clock(shown)}</span>
-            <button className="player-restart" onClick={startOver} disabled={busy || (index === 0 && status === 'paused')}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
-                <path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v4.5h4.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Start over
-            </button>
-            <span>{clock(totalSeconds)}</span>
-          </div>
+          {/* Stays on screen (at the bottom) when the words above need scrolling. */}
+          <div className="player-transport" ref={transportRef}>
+            <input
+              type="range"
+              className="slider player-seek"
+              aria-label="Position in the meditation"
+              aria-valuetext={`${clock(shown)} of ${clock(totalSeconds)}`}
+              min={0}
+              max={Math.round(totalSeconds)}
+              step={1}
+              value={Math.round(shown)}
+              disabled={busy}
+              onChange={e => onScrub(Number(e.target.value))}
+            />
+            <div className="player-time">
+              <span>{clock(shown)}</span>
+              <button className="player-restart" onClick={startOver} disabled={busy || (index === 0 && status === 'paused')}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+                  <path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v4.5h4.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Start over
+              </button>
+              <span>{clock(totalSeconds)}</span>
+            </div>
 
-          <div className="player-controls">
-            <button className="player-btn" onClick={() => skip(-1)} disabled={busy} aria-label="Previous line">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z" /></svg>
-            </button>
-            {status === 'paused' ? (
-              <button className="player-btn player-btn-main" onClick={resume} aria-label="Resume">
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z" /></svg>
+            <div className="player-controls">
+              <button className="player-btn" onClick={() => skip(-1)} disabled={busy} aria-label="Previous line">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z" /></svg>
               </button>
-            ) : (
-              <button className="player-btn player-btn-main" onClick={pause} disabled={busy} aria-label="Pause">
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
+              {status === 'paused' ? (
+                <button className="player-btn player-btn-main" onClick={resume} aria-label="Resume">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z" /></svg>
+                </button>
+              ) : (
+                <button className="player-btn player-btn-main" onClick={pause} disabled={busy} aria-label="Pause">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
+                </button>
+              )}
+              <button className="player-btn" onClick={() => skip(1)} disabled={busy} aria-label="Next line">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z" /></svg>
               </button>
-            )}
-            <button className="player-btn" onClick={() => skip(1)} disabled={busy} aria-label="Next line">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z" /></svg>
-            </button>
+            </div>
           </div>
 
           <div className="player-sounds">

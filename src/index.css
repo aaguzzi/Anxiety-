@@ -1935,6 +1935,8 @@ button.sense-check.done { background: var(--cat-grounding); }
   }
 }
 
+/* The meditation player keeps an invisible copy of this pill in its top bar (.player-sos-space) to
+   hold the corner free: change the two together. */
 .sos-fab.in-exercise {
   top: 14px;
   bottom: auto;
@@ -2071,6 +2073,19 @@ button.sense-check.done { background: var(--cat-grounding); }
 
 .player-overlay { z-index: 210; }
 
+/* The finish and voice-error screens: below the ✕, a column that scrolls when large text makes
+   it taller than the screen, and centres it when it fits. */
+.player-end {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+}
+.player-end > .completion-screen { flex: 1 0 auto; padding-top: 8px; }
+.player-end .btn { max-width: 100%; white-space: normal; }
+
 .player-body {
   flex: 1;
   min-height: 0;
@@ -2078,21 +2093,29 @@ button.sense-check.done { background: var(--cat-grounding); }
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 28px 28px;
+  padding: 8px 28px 0; /* the bottom space is the sounds' own, so the controls can stick to the very bottom */
   text-align: center;
 }
 
+/* Nothing in the column gives up its height (the seek bar kept being squashed to its 6px track):
+   when it all doesn't fit, the column scrolls. */
+.player-body > * { flex-shrink: 0; }
+
 .player-title {
+  max-width: 100%;
   font-size: 22px;
   font-weight: 800;
   font-family: var(--font-serif);
   color: var(--text-1);
+  overflow-wrap: anywhere;
 }
 
+/* 104px at the normal text size, smaller as the phone's text size grows (56px at 200%), so that
+   larger words get the room. */
 .player-orb {
-  width: 104px;
-  height: 104px;
-  margin: 22px 0 20px;
+  width: clamp(56px, calc(152px - 3em), 104px);
+  height: clamp(56px, calc(152px - 3em), 104px);
+  margin: clamp(10px, calc(46px - 1.5em), 22px) 0 clamp(10px, calc(44px - 1.5em), 20px);
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #A9C3D6, var(--cat-mindfulness));
   opacity: 0.55;
@@ -2106,9 +2129,12 @@ button.sense-check.done { background: var(--cat-grounding); }
   45%      { transform: scale(1.08); opacity: 0.7; }
 }
 
+/* Takes the spare height when there is some, and is never shorter than its words, so a long line or
+   large text moves the controls down instead of running over them. */
 .player-caption {
-  flex: 1;
+  flex: 1 0 auto;
   min-height: 96px;
+  max-width: 100%;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -2118,7 +2144,12 @@ button.sense-check.done { background: var(--cat-grounding); }
   color: var(--text-1);
 }
 
-.player-caption span { animation: fadeIn 700ms ease both; }
+.player-caption span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  /* Not "both": a transform left on the span after the fade lifts it above the controls. */
+  animation: fadeIn 700ms ease backwards;
+}
 .player-status { color: var(--text-3); font-style: italic; }
 
 .player-progress {
@@ -2135,9 +2166,23 @@ button.sense-check.done { background: var(--cat-grounding); }
   transition: width 600ms ease;
 }
 
+/* Seek bar, clock and buttons. When the words above need scrolling, this stays at the bottom of the
+   screen, so Pause is always there and in the same place; the words scroll under it. */
+.player-transport {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  align-self: stretch;
+  margin: 0 -28px;
+  padding: 4px 28px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg);
+}
+
 .player-time {
   width: 100%;
-  margin-top: 4px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2150,7 +2195,7 @@ button.sense-check.done { background: var(--cat-grounding); }
   display: flex;
   align-items: center;
   gap: 24px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .player-btn {
@@ -2361,8 +2406,11 @@ span.chip { cursor: default; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 14px;
-  border-radius: var(--radius-full);
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px clamp(8px, calc(21px - 0.5em), 14px); /* 14px; narrower sides as the text grows */
+  text-align: left;
+  border-radius: 22px; /* a pill at one line, not an oval when large text wraps the label */
   border: 1.5px solid var(--border);
   background: var(--surface);
   color: var(--text-1);
@@ -2373,18 +2421,37 @@ span.chip { cursor: default; }
   -webkit-tap-highlight-color: transparent;
 }
 
+.player-voice-btn svg { flex-shrink: 0; }
+
+/* An invisible copy of the SOS pill that floats over the right of this bar (.sos-fab.in-exercise:
+   right 16px, padding 0 16px, 13px heavy label; keep the two in step). Being the same text in the
+   same font, it is as wide as the pill at every text size, so the voice button wraps its label
+   rather than running under the pill. */
+.player-sos-space {
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: -4px; /* the bar's padding is 20px; the pill sits 16px from the edge */
+  padding: 0 16px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  visibility: hidden;
+}
+
 .player-voice {
   margin-top: 4px;
   font-size: 13px;
   color: var(--text-3);
 }
 
-.player-seek { margin-top: 4px; }
+.player-seek { height: 44px; }
 
 .player-restart {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 44px;
   padding: 6px 10px;
   border: none;
   background: none;
@@ -2405,9 +2472,13 @@ span.chip { cursor: default; }
 }
 
 .player-resumed button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  vertical-align: middle;
   border: none;
   background: none;
-  padding: 4px 0;
+  padding: 0;
   color: var(--text-1);
   font-size: 13px;
   font-weight: 700;
@@ -2417,8 +2488,9 @@ span.chip { cursor: default; }
 }
 
 .player-sounds {
-  width: calc(100% + 56px);
-  margin: 18px -28px 0;
+  width: 100%;
+  margin-top: 6px;
+  padding-bottom: 28px;
 }
 
 .player-sounds-label {
@@ -2429,14 +2501,13 @@ span.chip { cursor: default; }
   color: var(--text-3);
 }
 
+/* Every sound in view, wrapping onto more rows on narrow screens and with large text: one that is
+   playing is never hidden off the side. */
 .player-sounds-row {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
   margin-top: 8px;
-  padding: 0 28px 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-
-.player-sounds-row::-webkit-scrollbar { display: none; }
-.player-sounds-row .chip { flex-shrink: 0; }
+.player-sounds-row .chip { min-height: 44px; max-width: 100%; overflow-wrap: anywhere; }

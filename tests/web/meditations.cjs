@@ -27,10 +27,14 @@ const SCRIPT = 'Here is your script:\n**TITLE: Settling After Work**\nLine one h
         content: [{ type: 'text', text: SCRIPT }], stop_reason: 'end_turn', stop_sequence: null,
         usage: { input_tokens: 10, output_tokens: 10 } }) });
   });
-  // Record what is spoken; each line "takes" 400ms.
+  // Record what is spoken; each line "takes" 400ms. With __ttsFails set, the phone's voice fails.
   await page.addInitScript(() => {
     window.__spoken = [];
-    window.speechSynthesis.speak = u => { window.__spoken.push(u.text); setTimeout(() => u.onend && u.onend(new Event('end')), 400); };
+    window.speechSynthesis.speak = u => {
+      if (window.__ttsFails) { setTimeout(() => u.onerror && u.onerror(Object.assign(new Event('error'), { error: 'synthesis-failed' })), 50); return; }
+      window.__spoken.push(u.text);
+      setTimeout(() => u.onend && u.onend(new Event('end')), 400);
+    };
     window.speechSynthesis.cancel = () => {};
   });
   const spoken = () => page.evaluate(() => window.__spoken);
@@ -108,13 +112,37 @@ const SCRIPT = 'Here is your script:\n**TITLE: Settling After Work**\nLine one h
   await page.getByRole('button', { name: 'Next line' }).click();
   await page.getByText('Welcome back.').waitFor({ timeout: 3000 });
   check('Next on the last line finishes', true);
+  const meditationsDone = async () => Object.values(JSON.parse(await page.evaluate(() => localStorage.getItem('ac-history')) || '{}')).flat().filter(id => id === 'meditation').length;
+  for (let i = 0; i < 20 && await meditationsDone() === 0; i++) await page.waitForTimeout(100); // saved just after the screen shows
+  check('reaching the end counts as practice, before Finish is tapped', await meditationsDone() === 1, await page.evaluate(() => localStorage.getItem('ac-history')));
+  check('the finish screen keeps the close button', await page.getByRole('button', { name: 'Close meditation' }).isVisible());
   await page.getByRole('button', { name: 'Finish', exact: true }).click();
-  check('completion counted as practice', (await page.evaluate(() => localStorage.getItem('ac-history'))).includes('meditation'));
+  check('Finish closes the player, and the practice is counted once', await page.locator('.player-overlay').count() === 0 && await meditationsDone() === 1);
 
   // delete
   await page.getByRole('button', { name: /Delete Settling/ }).click();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   check('delete removes it (ready-made ones stay)', await page.locator('.saved-med').count() === 11);
+
+  // the phone's voice fails: the error screen offers another voice, and tries again after it
+  await page.evaluate(() => { window.__ttsFails = true; });
+  await page.getByText('Arriving Here').click();
+  await page.getByText("The voice couldn't start").waitFor({ timeout: 5000 });
+  check('the voice-error screen keeps the close button', await page.getByRole('button', { name: 'Close meditation' }).isVisible());
+  await page.getByRole('button', { name: 'Choose another voice' }).click();
+  await page.locator('.voice-panel').waitFor({ timeout: 3000 });
+  check('Choose another voice opens Voice & sounds', true);
+  await page.evaluate(() => { window.__ttsFails = false; window.__spoken = []; });
+  await page.locator('.voice-panel .back-btn').click();
+  await caption('Welcome.').waitFor({ timeout: 5000 });
+  check('back from Voice & sounds it tries the voice again, from the line that failed', (await spoken())[0] === 'Welcome.', JSON.stringify(await spoken()));
+  await page.getByRole('button', { name: 'Close meditation' }).click();
+  await page.evaluate(() => { window.__ttsFails = true; });
+  await page.getByText('Arriving Here').click();
+  await page.getByText("The voice couldn't start").waitFor({ timeout: 5000 });
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  check('Close on the voice-error screen leaves the player', await page.locator('.player-overlay').count() === 0);
+  await page.evaluate(() => { window.__ttsFails = false; });
 
   // regressions: tab scroll reset, breathing completion screen
   await page.getByRole('button', { name: 'Toolbox', exact: true }).click();

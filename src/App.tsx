@@ -266,7 +266,7 @@ export default function App() {
           onChangeSettings={setSettings}
           onSaveBench={bench => setSettings(prev => ({ ...prev, voiceBench: bench }))}
           onClose={() => setActiveMeditation(null)}
-          onComplete={() => { recordPractice('meditation'); setActiveMeditation(null); }}
+          onComplete={() => recordPractice('meditation')}
         />
       )}
 

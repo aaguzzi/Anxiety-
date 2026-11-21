@@ -18,7 +18,7 @@ if ! curl -s -o /dev/null "http://localhost:$PORT/"; then
 fi
 export APP_URL="http://localhost:$PORT/"
 
-for t in web/voice-and-sounds web/meditations web/breathing phone/phone; do
+for t in web/voice-and-sounds web/meditations web/player-layout web/breathing phone/phone; do
   echo "== tests/$t"
   node "tests/$t.cjs" "$SHOTS" > "$SHOTS/$(basename $t).log" 2>&1 || fail=1
   grep -c "^PASS" "$SHOTS/$(basename $t).log" | sed 's/$/ passed/'

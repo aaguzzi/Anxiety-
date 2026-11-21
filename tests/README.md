@@ -4,7 +4,7 @@
 
 | Folder | What it checks | How |
 |---|---|---|
-| `web/` | The app as it runs in a browser: Voice & sounds, the player, creating and playing meditations, breathing, check-in, SOS. | Playwright drives the built app; the Anthropic API is faked. |
+| `web/` | The app as it runs in a browser: Voice & sounds, the player (and its layout on a 320-wide screen and at 200% text), creating and playing meditations, breathing, check-in, SOS. | Playwright drives the built app; the Anthropic API is faked. |
 | `phone/` | The parts that only exist in the Android app, where the phone itself plays the meditation: starting, pausing, a voice failure, the notification-permission wait, a meditation written while the app was off screen. | The same built app, with `fake-phone.js` answering in place of the phone. Its session follows `MeditationSession.java`. |
 | `audio/` | The Android sound mixer (`Ambience.java`) and playback session (`MeditationSession.java`) themselves: fades, no clipping, memory released, audio focus, phone calls, unplugged headphones. | The real Java files compiled against small stand-ins for the Android classes (`audio/stubs`), with time running twenty times faster. |
 
